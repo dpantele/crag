@@ -9,6 +9,7 @@
 #include <cassert>
 #include <new>
 #include <memory>
+#include <cstddef>
 
 #include "gmpxx.h"
 
@@ -122,6 +123,8 @@ namespace slp {
 //    }
 //};
 
+namespace internal {
+
 union MaxAlign
 {
     int                 i     ;
@@ -132,127 +135,342 @@ union MaxAlign
     void*               p     ;
     void (*             pf)() ;
     MaxAlign*           ps    ;
-} ;
+};
 
-template <class... Hashers> class TVertexHash;
+template <class... Hashes> class VertexHashSequence;
 
-template <class... Hashers> class TVertexHash;
-template <class TFirstHasher, class... TOtherHashers>
-class TVertexHash<TFirstHasher, TOtherHashers...> : public TVertexHash<TOtherHashers...> {
-    typedef TFirstHasher FirstHasher;
-    typedef TVertexHash<TOtherHashers...> OtherHasher;
+template <class TFirstHash, class... TOtherHashes>
+class VertexHashSequence<TFirstHash, TOtherHashes...> : public VertexHashSequence<TOtherHashes...> {
   public:
-    TVertexHash()
-      : OtherHasher()
-      , first_hasher_(nullptr)
+    typedef TFirstHash FirstHash;
+    typedef VertexHashSequence<TOtherHashes...> OtherHashes;
+
+    VertexHashSequence()
+      : OtherHashes()
+      , first_hash_(nullptr)
     {}
 
-    TVertexHash(Vertex::VertexSignedId terminal_symbol)
-      : OtherHasher(terminal_symbol)
-      , first_hasher_(nullptr)
-    { }
-
-    TVertexHash(std::shared_ptr<TVertexHash> left, std::shared_ptr<TVertexHash> right)
-      : OtherHasher(left, right)
-      , first_hasher_(nullptr)
-    { }
-
-    TVertexHash(const TVertexHash& other)
-      : OtherHasher(other)
-      , first_hasher_(nullptr)
+    VertexHashSequence(const VertexHashSequence& other)
+      : OtherHashes(other)
+      , first_hash_(nullptr)
     {
-      if (other.first_hasher_) {
-        first_hasher_ = reinterpreter_cast<FirstHasher*>(new (first_hasher_storage_.o) FirstHasher(*(other.first_hasher_)));
+      if (other.first_hash_) {
+        get_first_or_init_with_copy(other.first_hash_);
       }
     }
 
-    ~TVertexHashImpl() {
-      first_hasher_->~FirstHasher();
+    ~VertexHashSequence() {
+      destruct_first();
     }
 
-    const FirstHasher& calculate_first(Vertex::VertexSignedId terminal_id) const {
-      if (!first_hasher_) {
-        first_hasher_ = reinterpreter_cast<FirstHasher*>(new (first_hasher_storage_.o) FirstHasher(terminal_id));
+    bool first_is_calculated() const {
+      return first_hash_;
+    }
+
+//    const FirstHash& get_first_or_init_with_terminal(Vertex::VertexSignedId terminal_id) const {
+//      if (!first_hash_) {
+//        construct_first(terminal_id);
+//      }
+//
+//      return *first_hash_;
+//    }
+
+    FirstHash& get_first_or_init_with_terminal(Vertex::VertexSignedId terminal_id) {
+      if (!first_hash_) {
+        construct_first(terminal_id);
       }
-      return *first_hasher_;
+
+      return *first_hash_;
     }
 
-    const FirstHasher& calculate_first(const FirstHasher& left, const FirstHasher& right) const {
-      if (!first_hasher_) {
-        first_hasher_ = reinterpreter_cast<FirstHasher*>(new (first_hasher_storage_.o) FirstHasher(left));
-        *first_hasher_ *= right;
+
+    //    FirstHash& get_first_or_init_with_terminal(Vertex::VertexSignedId terminal_id) {
+//      //use const-version for realization
+//      return const_cast<FirstHash&>(
+//        static_cast<const VertexHashSequence*>(this)->get_first_or_init_with_terminal(terminal_id)
+//      );
+//    }
+//
+    FirstHash& get_first_or_init_with_copy(const FirstHash& other) {
+      if (!first_hash_) {
+        construct_first(other);
       }
-      return *first_hasher_;
+
+      return *first_hash_;
     }
 
-    const FirstHasher& calculate_first(const TVertexHash& this_container) const {
-      if (!first_hasher_) {
-        first_hasher_ = reinterpreter_cast<FirstHasher*>(new (first_hasher_storage_.o) FirstHasher(terminal_id));
-      }
-      return *first_hasher_;
-    }
-
-    bool is_equal_to(const TVertexHash& this_container, const TVertexHash& other_container) const;
-
-    TVertexHash inverse() const {
-      TVertexHash copy(*this);
-      return copy.inverse_inplace();
-    }
-
-    TVertexHash& inverse_inplace() {
-      FirstHasher::inverse_inplace();
-      OtherHasher::inverse_inplace();
-
-      return *this;
-    }
-
-    typedef std::unordered_map<Vertex, TVertexHash> Cache;
+    FirstHash* first_hash_;
 
   private:
+
     union
     {
-        MaxAlign dummyForAlignment;
-        unsigned char o[sizeof(FirstHasher)];
-    } first_hasher_storage_;
-    mutable FirstHasher* first_hasher_;
+        max_align_t dummyForAlignment; //TODO: try std::max_align_t
+        unsigned char o[sizeof(FirstHash)];
+    } first_hash_storage_;
+
+    template <typename... ConstructorParams> void construct_first(ConstructorParams&&... params) {
+      new (first_hash_storage_.o) FirstHash(std::forward<ConstructorParams>(params)...);
+      first_hash_ = reinterpret_cast <FirstHash*>(first_hash_storage_.o);
+    }
+
+    void destruct_first() {
+      if (first_hash_) {
+        first_hash_->~FirstHash();
+        first_hash_ = nullptr;
+      }
+    }
 };
 
 template <>
-class TVertexHash<> {
+class VertexHashSequence<> {
   public:
-    TVertexHash& operator*=(const TVertexHash& other) {
-      return *this;
+    VertexHashSequence()
+    {}
+
+    VertexHashSequence(const VertexHashSequence& other)
+    {
     }
 
-    TVertexHash& inverse_inplace() {
-      return *this;
+    ~VertexHashSequence() {
+    }
+};
+
+template <class... Hashes> class VertexHashImpl {
+  public:
+    VertexHashImpl()
+      : terminal_id_()
+    { }
+
+    VertexHashImpl(Vertex::VertexSignedId terminal_id)
+      : terminal_id_(terminal_id)
+    { }
+
+    VertexHashImpl(std::shared_ptr<VertexHashImpl> left, std::shared_ptr<VertexHashImpl> right)
+      : left_hash_(std::move(left))
+      , right_hash_(std::move(right))
+      , terminal_id_()
+    { }
+
+    bool is_equal(const std::shared_ptr<VertexHashImpl>& other) const {
+      return is_equal_recursive<VertexHashSequence<Hashes...> >(other, typename std::is_same<VertexHashSequence<Hashes...>, VertexHashSequence<>>::type());
     }
 
-    TVertexHash inverse() const {
-      return *this;
+    template<class HashesSequence>
+    bool is_equal_recursive(const std::shared_ptr<VertexHashImpl>& other, std::false_type) const {
+      return get_first_hash<HashesSequence>().is_equal_to(other->get_first_hash<HashesSequence>())
+          && is_equal_recursive<typename HashesSequence::OtherHashes>(
+              other,
+              typename std::is_same<typename HashesSequence::OtherHashes, VertexHashSequence<>>::type()
+          );
     }
 
-    TVertexHash(Vertex::VertexSignedId terminal) {}
-    TVertexHash() {}
-
-    bool operator==(const TVertexHash& other) {
+    template<class HashesSequence>
+    bool is_equal_recursive(const std::shared_ptr<VertexHashImpl>& other, std::true_type) const {
       return true;
     }
-  protected:
-    std::shared_ptr<TVertexHash> left_hash_or_negate_;
-    std::shared_ptr<TVertexHash> right_hash_or_null_;
-    Vertex::VertexSignedId terminal_symbol_;
-};
 
-template <class... Hashers> class TVertexHash {
-    template <class...> friend TVertexHashImpl;
   private:
-    TVertexHashImpl<Hashers> impl;
-    Vertex::VertexSignedId terminal_symbol_;
+    mutable VertexHashSequence<Hashes...> hashes_values_;
+    std::shared_ptr<VertexHashImpl> left_hash_; //We also use it if this hash is 'inverting' hash
+    std::shared_ptr<VertexHashImpl> right_hash_;
+    Vertex::VertexSignedId terminal_id_;
+
+    template <class HashesSequence>
+    const typename HashesSequence::FirstHash& get_first_hash() const {
+        HashesSequence* hash_sequence = &hashes_values_;
+        if (terminal_id_) {
+          return hash_sequence->get_first_or_init_with_terminal(terminal_id_);
+        } else if (!right_hash_) {
+          if (!hash_sequence->first_hash_) {
+            hash_sequence->get_first_or_init_with_copy(left_hash_->get_first_hash<HashesSequence>()).inverse_inplace();
+          }
+          return *(hash_sequence->first_hash_);
+        } else {
+          if (!hash_sequence->first_hash_) {
+            hash_sequence->get_first_or_init_with_copy(left_hash_->get_first_hash<HashesSequence>());
+            hash_sequence->first_hash_->concatenate_with(
+                right_hash_->get_first_hash<HashesSequence>()
+            );
+          }
+          return *(hash_sequence->first_hash_);
+        }
+    }
+
 };
 
+} //namespace internal
 
+template <class... Hashes> class TVertexHash {
+  public:
+    typedef void OtherHashes;
 
+    TVertexHash() {}
+    TVertexHash(const TVertexHash& other)
+      : ptr_(other.ptr_)
+    { }
+
+    TVertexHash(TVertexHash& other) //I have to define this also because otherwise the forwarding constructor is used
+      : ptr_(other.ptr_)
+    { }
+
+    TVertexHash(TVertexHash&& other)
+      : ptr_(std::move(other.ptr_))
+    { }
+
+    static TVertexHash make_empty() {
+      return TVertexHash(std::make_shared<VertexImpl>());
+    }
+
+    static TVertexHash make_concatenation(TVertexHash left, TVertexHash right) {
+      return TVertexHash(std::make_shared<VertexImpl>(std::move(left.ptr_), std::move(right.ptr_)));
+    }
+
+    static TVertexHash make_terminal(Vertex::VertexSignedId terminal_id) {
+      return TVertexHash(std::make_shared<VertexImpl>(terminal_id));
+    }
+
+    static TVertexHash make_inverse(TVertexHash hash) {
+      return TVertexHash(std::make_shared<VertexImpl>(std::move(hash.ptr_), nullptr));
+    }
+
+    bool operator==(const TVertexHash& other) const {
+      return ptr_->is_equal(other.ptr_);
+    }
+
+    bool operator!=(const TVertexHash& other) const {
+      return !(*this == other);
+    }
+
+  private:
+    typedef internal::VertexHashImpl<Hashes...> VertexImpl;
+
+    TVertexHash(std::shared_ptr<VertexImpl>&& ptr)
+      : ptr_(ptr)
+    { }
+
+    std::shared_ptr<VertexImpl> ptr_;
+};
+
+//template <class... Hashers> class TVertexHash;
+//
+//template <class... Hashers> class TVertexHash;
+//template <class TFirstHasher, class... TOtherHashers>
+//class TVertexHash<TFirstHasher, TOtherHashers...> : public TVertexHash<TOtherHashers...> {
+//    typedef TFirstHasher FirstHasher;
+//    typedef TVertexHash<TOtherHashers...> OtherHasher;
+//  public:
+//    TVertexHash()
+//      : OtherHasher()
+//      , first_hasher_(nullptr)
+//    {}
+//
+//    TVertexHash(Vertex::VertexSignedId terminal_symbol)
+//      : OtherHasher(terminal_symbol)
+//      , first_hasher_(nullptr)
+//    { }
+//
+//    TVertexHash(std::shared_ptr<TVertexHash> left, std::shared_ptr<TVertexHash> right)
+//      : OtherHasher(left, right)
+//      , first_hasher_(nullptr)
+//    { }
+//
+//    TVertexHash(const TVertexHash& other)
+//      : OtherHasher(other)
+//      , first_hasher_(nullptr)
+//    {
+//      if (other.first_hasher_) {
+//        first_hasher_ = reinterpreter_cast<FirstHasher*>(new (first_hasher_storage_.o) FirstHasher(*(other.first_hasher_)));
+//      }
+//    }
+//
+//    ~TVertexHashImpl() {
+//      first_hasher_->~FirstHasher();
+//    }
+//
+//    const FirstHasher& calculate_first(Vertex::VertexSignedId terminal_id) const {
+//      if (!first_hasher_) {
+//        first_hasher_ = reinterpreter_cast<FirstHasher*>(new (first_hasher_storage_.o) FirstHasher(terminal_id));
+//      }
+//      return *first_hasher_;
+//    }
+//
+//    const FirstHasher& calculate_first(const FirstHasher& left, const FirstHasher& right) const {
+//      if (!first_hasher_) {
+//        first_hasher_ = reinterpreter_cast<FirstHasher*>(new (first_hasher_storage_.o) FirstHasher(left));
+//        *first_hasher_ *= right;
+//      }
+//      return *first_hasher_;
+//    }
+//
+//    const FirstHasher& calculate_first(const TVertexHash& this_container) const {
+//      if (!first_hasher_) {
+//        first_hasher_ = reinterpreter_cast<FirstHasher*>(new (first_hasher_storage_.o) FirstHasher(terminal_id));
+//      }
+//      return *first_hasher_;
+//    }
+//
+//    bool is_equal_to(const TVertexHash& this_container, const TVertexHash& other_container) const;
+//
+//    TVertexHash inverse() const {
+//      TVertexHash copy(*this);
+//      return copy.inverse_inplace();
+//    }
+//
+//    TVertexHash& inverse_inplace() {
+//      FirstHasher::inverse_inplace();
+//      OtherHasher::inverse_inplace();
+//
+//      return *this;
+//    }
+//
+//    typedef std::unordered_map<Vertex, TVertexHash> Cache;
+//
+//  private:
+//    union
+//    {
+//        MaxAlign dummyForAlignment;
+//        unsigned char o[sizeof(FirstHasher)];
+//    } first_hasher_storage_;
+//    mutable FirstHasher* first_hasher_;
+//};
+//
+//template <>
+//class TVertexHash<> {
+//  public:
+//    TVertexHash& operator*=(const TVertexHash& other) {
+//      return *this;
+//    }
+//
+//    TVertexHash& inverse_inplace() {
+//      return *this;
+//    }
+//
+//    TVertexHash inverse() const {
+//      return *this;
+//    }
+//
+//    TVertexHash(Vertex::VertexSignedId terminal) {}
+//    TVertexHash() {}
+//
+//    bool operator==(const TVertexHash& other) {
+//      return true;
+//    }
+//  protected:
+//    std::shared_ptr<TVertexHash> left_hash_or_negate_;
+//    std::shared_ptr<TVertexHash> right_hash_or_null_;
+//    Vertex::VertexSignedId terminal_symbol_;
+//};
+//
+//template <class... Hashers> class TVertexHash {
+//    template <class...> friend TVertexHashImpl;
+//  private:
+//    TVertexHashImpl<Hashers> impl;
+//    Vertex::VertexSignedId terminal_symbol_;
+//};
+//
+//
+//
 namespace hashers {
 
 //! Calculate the power of each terminal assuming considering the group as commutative.
@@ -289,7 +507,7 @@ class PowerCountHash {
       }
     }
 
-    bool is_equal_to(const PowerCountHash& other) {
+    bool is_equal_to(const PowerCountHash& other) const {
       for (size_t i = 0; i < RANK; ++i) {
         if (terminal_power_[i] != other.terminal_power_[i]) {
           return false;
@@ -322,7 +540,7 @@ class SinglePowerHash {
       terminals_power_ *= -1;
     }
 
-    bool is_equal_to(const SinglePowerHash& other) {
+    bool is_equal_to(const SinglePowerHash& other) const {
       return terminals_power_ == other.terminals_power_;
     }
 };
@@ -374,7 +592,7 @@ class PermutationHash {
       permutation_ = permutation_.inverse();
     }
 
-    bool is_equal_to(const PermutationHash& other) {
+    bool is_equal_to(const PermutationHash& other) const {
       return permutation_ == other.permutation_;
     }
 };
@@ -385,7 +603,7 @@ class PermutationHash {
 template <class... Hashers>
 class TVertexHashAlgorithms {
   public:
-    typedef TVertexHash<Hashers...> VertexHash; //!< The type of basic hash.
+    typedef TVertexHash<Hashers...> VertexHash; //!< Type definition of the VertexHash used by these algorithms
 
     /**
      * All algorithms here can take a pointer to the object of this type to store calculate hashes.
@@ -397,15 +615,16 @@ class TVertexHashAlgorithms {
       assert(cache);
       assert(begin >= 0 && end <= root.length());
 
-      static VertexHash Null;
+      static VertexHash Null = VertexHash::make_empty();
       if (begin >= root.length() || end < 0 || end <= begin) {
         return Null;
       }
+
       if (root.height() == 1) {
         return cache->insert(
             std::make_pair(
                 root,
-                VertexHash(root.vertex_id())
+                VertexHash::make_terminal(root.vertex_id())
             )
         ).first->second;
       } else {
@@ -417,14 +636,16 @@ class TVertexHashAlgorithms {
           } else {
             cache_item = cache->find(root.negate());
             if (cache_item != cache->end()) {
-              return cache_item->second.inverse();
+              return VertexHash::make_inverse(cache_item->second);
             }
 
             const VertexHash& result = cache->insert(
                 std::make_pair(
                     root,
-                    VertexHash(get_subvertex_hash(root.left_child(), begin, root.split_point(), cache)) *=
-                               get_subvertex_hash(root.right_child(), 0, end - root.split_point(), cache)
+                    VertexHash::make_concatenation(
+                        get_subvertex_hash(root.left_child(), begin, root.split_point(), cache),
+                        get_subvertex_hash(root.right_child(), 0, end - root.split_point(), cache)
+                    )
                 )).first->second;
 
             return result;
@@ -435,8 +656,8 @@ class TVertexHashAlgorithms {
         } else if (root.split_point() <= begin) {
           return get_subvertex_hash(root.right_child(), begin - root.split_point(), end - root.split_point(), cache);
         } else {
-          return VertexHash(get_subvertex_hash(root.left_child(), begin, root.split_point(), cache)) *=
-                            get_subvertex_hash(root.right_child(), 0, end - root.split_point(), cache);
+          return VertexHash::make_concatenation(get_subvertex_hash(root.left_child(), begin, root.split_point(), cache),
+                            get_subvertex_hash(root.right_child(), 0, end - root.split_point(), cache));
         }
       }
     }

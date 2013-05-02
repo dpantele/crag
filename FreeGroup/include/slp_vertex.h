@@ -105,9 +105,8 @@ inline void PrintTo(const Vertex& vertex, ::std::ostream* os) {
 
 namespace internal {
 
-class VertexStorageEntry {
-  public:
-    virtual ~VertexStorageEntry() {};
+struct VertexStorageEntry {
+  virtual ~VertexStorageEntry() {};
 };
 
 class VertexData {
@@ -115,6 +114,7 @@ class VertexData {
     static std::unique_ptr<VertexStorageEntry> create_storage_entry(const Vertex& left_child, const Vertex& right_child);
     VertexData(VertexStorageEntry*, bool negate);
     VertexData(const Vertex& terminal_or_null_vertex);
+    VertexData() {}
 };
 
 class BasicVertex {

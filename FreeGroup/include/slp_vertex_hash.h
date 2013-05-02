@@ -287,6 +287,37 @@ class PermutationHash {
 
 } //namespace hashers
 
+template <class VertexHash>
+struct THashStorage : public internal::VertexStorageEntry {
+    VertexHash hash_;
+    THashStorage(const VertexHash& other)
+      : hash_(other)
+    { }
+};
+
+template <class VertexHash>
+class VertexHashData : public internal::VertexData {
+  public:
+    typedef THashStorage<VertexHash> StorageType;
+    VertexHash hash_;
+
+    static std::unique_ptr<StorageType> create_storage_entry(const Vertex& left_child, const Vertex& right_child) {
+      return std::unique_ptr<StorageType>(new StorageType(VertexHash(left_child.get_data<VertexHashData>().hash_) *= right_child.get_data<VertexHashData>().hash_));
+    }
+
+    VertexHashData(StorageType* storage, bool negate)
+      : hash_(storage->hash_)
+    {
+      if (negate) {
+        hash_.inverse_inplace();
+      }
+    }
+
+    VertexHashData(const Vertex& vertex)
+      : hash_(vertex.vertex_id())
+    { }
+};
+
 //! Here some algorithms which use hashed are implemented. Made for the convenience when using templates.
 template <class... Hashers>
 class TVertexHashAlgorithms {
@@ -308,33 +339,10 @@ class TVertexHashAlgorithms {
         return Null;
       }
       if (root.height() == 1) {
-        return cache->insert(
-            std::make_pair(
-                root,
-                VertexHash(root.vertex_id())
-            )
-        ).first->second;
+        return root.get_data<VertexHashData<VertexHash>>().hash_;
       } else {
         if (begin == 0 && end == root.length()) {
-          auto cache_item = cache->find(root);
-
-          if (cache_item != cache->end()) {
-            return cache_item->second;
-          } else {
-            cache_item = cache->find(root.negate());
-            if (cache_item != cache->end()) {
-              return cache_item->second.inverse();
-            }
-
-            const VertexHash& result = cache->insert(
-                std::make_pair(
-                    root,
-                    VertexHash(get_subvertex_hash(root.left_child(), begin, root.split_point(), cache)) *=
-                               get_subvertex_hash(root.right_child(), 0, end - root.split_point(), cache)
-                )).first->second;
-
-            return result;
-          }
+          return root.get_data<VertexHashData<VertexHash>>().hash_;
         }
         if (root.split_point() >= end) {
           return get_subvertex_hash(root.left_child(), begin, end, cache);

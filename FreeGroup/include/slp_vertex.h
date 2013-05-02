@@ -12,6 +12,7 @@
 #include <memory>
 #include <iostream>
 #include <cassert>
+#include <forward_list>
 
 #include <gmpxx.h>
 typedef mpz_class LongInteger;
@@ -77,6 +78,9 @@ class Vertex {
       return vertex_signed_id_;
     }
 
+    template <class DataType>
+    inline DataType get_data() const;
+
   protected:
     typedef std::allocator<internal::BasicVertex> VertexAllocator;
     //typedef internal::BasicVertexPoolAllocator VertexAllocator;
@@ -100,12 +104,26 @@ inline void PrintTo(const Vertex& vertex, ::std::ostream* os) {
 
 
 namespace internal {
+
+class VertexStorageEntry {
+  public:
+    virtual ~VertexStorageEntry() {};
+};
+
+class VertexData {
+  public:
+    static std::unique_ptr<VertexStorageEntry> create_storage_entry(const Vertex& left_child, const Vertex& right_child);
+    VertexData(VertexStorageEntry*, bool negate);
+    VertexData(const Vertex& terminal_or_null_vertex);
+};
+
 class BasicVertex {
   public:
     LongInteger length_;
     unsigned int height_;
     Vertex left_child_;
     Vertex right_child_;
+    mutable std::forward_list<std::unique_ptr<VertexStorageEntry>> vertex_storage_;
 
     BasicVertex()
       : length_(0)
@@ -118,6 +136,20 @@ class BasicVertex {
       , left_child_(std::move(left_child))
       , right_child_(std::move(right_child))
     { }
+
+    template <class DataType>
+    typename DataType::StorageType* get_basic_entry() {
+      typename DataType::StorageType* result = nullptr;
+      for (const auto& pointer : vertex_storage_) {
+        result = dynamic_cast<typename DataType::StorageType*>(pointer.get());
+        if (result) {
+          return result;
+        }
+      }
+      //it is not yet in the list
+      vertex_storage_.push_front(DataType::create_storage_entry(left_child_, right_child_));
+      return static_cast<typename DataType::StorageType*>(vertex_storage_.front().get());
+    }
 };
 
 }
@@ -187,6 +219,15 @@ inline void Vertex::debug_print(::std::ostream* out) const {
     (*out) << "NonterminalVertex(l=" << vertex_->length_
            << ", h=" << vertex_->height_
            << ", id=" << vertex_signed_id_ << ')';
+  }
+}
+
+template <class DataType>
+inline DataType Vertex::get_data() const {
+  if (vertex_) {
+    return DataType(vertex_->get_basic_entry<DataType>(), vertex_signed_id_ < 0);
+  } else {
+    return DataType(*this);
   }
 }
 

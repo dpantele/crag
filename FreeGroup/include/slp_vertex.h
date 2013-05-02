@@ -78,8 +78,8 @@ class Vertex {
       return vertex_signed_id_;
     }
 
-    template <class DataType>
-    inline DataType get_data() const;
+    template <class DataType, typename... ConstructParams>
+    inline DataType get_data(ConstructParams&&...) const;
 
   protected:
     typedef std::allocator<internal::BasicVertex> VertexAllocator;
@@ -222,12 +222,12 @@ inline void Vertex::debug_print(::std::ostream* out) const {
   }
 }
 
-template <class DataType>
-inline DataType Vertex::get_data() const {
+template <class DataType, class... ConstructParams>
+inline DataType Vertex::get_data(ConstructParams&&... params) const {
   if (vertex_) {
-    return DataType(vertex_->get_basic_entry<DataType>(), vertex_signed_id_ < 0);
+    return DataType(vertex_->get_basic_entry<DataType>(), vertex_signed_id_ < 0, std::forward<ConstructParams>(params)...);
   } else {
-    return DataType(*this);
+    return DataType(*this, std::forward<ConstructParams>(params)...);
   }
 }
 

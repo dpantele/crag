@@ -115,6 +115,7 @@ TEST(Reduce, Simple2) {
 
   EXPECT_EQ(Vertex(), reduce(mNull));
 }
+
 std::string print_tree_preorder(const Vertex& vertex) {
   std::ostringstream out;
   PreorderInspector inspector(vertex);
@@ -126,6 +127,20 @@ std::string print_tree_preorder(const Vertex& vertex) {
   }
 
   return out.str();
+}
+
+TEST(Reduce, Simple3) {
+  TerminalVertex a('a');
+  TerminalVertex b('b');
+  TerminalVertex c('c');
+  NonterminalVertex ab(a, b);
+  NonterminalVertex b_1c_1(b.negate(), c.negate());
+  NonterminalVertex ac_1(ab, b_1c_1);
+
+  auto reduced = reduce(ac_1);
+
+  EXPECT_EQ(a, reduced.left_child());
+  EXPECT_EQ(c.negate(), reduced.right_child()) << print_tree_preorder(reduced);
 }
 
 std::string print_tree_preorder_single(const Vertex& vertex) {
@@ -203,10 +218,17 @@ TEST(Reduce, Example2) {
   std::vector<int> correct = {-3, -2, -1, -3, -2, -1, 2, 3};
 
   auto reduced = reduce(v8);
-  ASSERT_EQ(correct.size(), reduced.length());
+  ASSERT_EQ(correct.size(), reduced.length()) << print_tree_preorder_single(v8) << std::endl
+      << print_tree_preorder(reduced) << std::endl
+      << VertexWord<int>(v8) << std::endl
+      << VertexWord<int>(reduced) << std::endl;
   auto correct_symbol = correct.begin();
   for (auto symbol : VertexWord<int>(reduced)) {
-    ASSERT_EQ(*correct_symbol, symbol);
+    ASSERT_EQ(*correct_symbol, symbol) << print_tree_preorder_single(v8) << std::endl
+        << print_tree_preorder(reduced) << std::endl
+        << VertexWord<int>(v8) << std::endl
+        << VertexWord<int>(reduced) << std::endl;
+
     ++correct_symbol;
   }
 }
@@ -224,7 +246,7 @@ TEST(Reduce, StressTest) {
     Vertex reduced = reduce(image);
 
     std::vector<int> reduced_image;
-    for (auto symbol : VertexWord<int>(reduced)) {
+    for (auto symbol : VertexWord<int>(image)) {
       if (!reduced_image.empty() && symbol == -reduced_image.back()) {
         reduced_image.pop_back();
       } else {
@@ -235,6 +257,7 @@ TEST(Reduce, StressTest) {
     std::copy(reduced_image.begin(), reduced_image.end(), std::ostream_iterator<int>(reduced_image_string, ""));
     auto correct_symbol = reduced_image.begin();
     for (auto symbol : VertexWord<int>(reduced)) {
+      //std::cout << symbol << std::endl;
       ASSERT_EQ(*correct_symbol, symbol) << seed << std::endl
           << print_tree_preorder_single(image) << std::endl
           << print_tree_preorder(reduced) << std::endl

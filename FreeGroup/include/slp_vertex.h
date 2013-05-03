@@ -78,8 +78,12 @@ class Vertex {
       return vertex_signed_id_;
     }
 
+    inline Vertex internal_abs() const {
+      return vertex_signed_id_ < 0 ? this->negate() : *this;
+    }
+
     template <class DataType, typename... ConstructParams>
-    inline DataType get_data(ConstructParams&&...) const;
+    inline DataType get_data(ConstructParams&&... params) const;
 
   protected:
     typedef std::allocator<internal::BasicVertex> VertexAllocator;
@@ -137,8 +141,8 @@ class BasicVertex {
       , right_child_(std::move(right_child))
     { }
 
-    template <class DataType>
-    typename DataType::StorageType* get_basic_entry() {
+    template <class DataType, typename ... ConstructParams>
+    typename DataType::StorageType* get_basic_entry(ConstructParams&& ... params) {
       typename DataType::StorageType* result = nullptr;
       for (const auto& pointer : vertex_storage_) {
         result = dynamic_cast<typename DataType::StorageType*>(pointer.get());
@@ -147,7 +151,7 @@ class BasicVertex {
         }
       }
       //it is not yet in the list
-      vertex_storage_.push_front(DataType::create_storage_entry(left_child_, right_child_));
+      vertex_storage_.push_front(DataType::create_storage_entry(left_child_, right_child_, params...));
       return static_cast<typename DataType::StorageType*>(vertex_storage_.front().get());
     }
 };
@@ -222,15 +226,14 @@ inline void Vertex::debug_print(::std::ostream* out) const {
   }
 }
 
-template <class DataType, class... ConstructParams>
+template <class DataType, typename... ConstructParams>
 inline DataType Vertex::get_data(ConstructParams&&... params) const {
   if (vertex_) {
-    return DataType(vertex_->get_basic_entry<DataType>(), vertex_signed_id_ < 0, std::forward<ConstructParams>(params)...);
+    return DataType(vertex_->get_basic_entry<DataType>(std::forward<ConstructParams>(params)...), vertex_signed_id_ < 0, std::forward<ConstructParams>(params)...);
   } else {
     return DataType(*this, std::forward<ConstructParams>(params)...);
   }
 }
-
 
 //! Terminal vertex in a SLP. Produces word of length 1.
 template <typename TerminalSymbol>

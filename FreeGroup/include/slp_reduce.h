@@ -121,67 +121,82 @@ inline LongInteger get_cancellation_length(const Vertex& vertex) {
   return get_cancellation_length(vertex, &temp);
 }
 
+struct ReducedStorage : public internal::VertexStorageEntry {
+    Vertex reduced_;
+    ReducedStorage(Vertex&& vertex)
+      : reduced_(std::move(vertex))
+    { }
+};
+
+template <typename GetCancellationLengthFunctor>
+class ReducedVertex : public internal::VertexData {
+  public:
+    typedef ReducedStorage StorageType;
+
+    Vertex reduced_;
+
+    static std::unique_ptr<StorageType> create_storage_entry(const Vertex& left_child,
+                                                             const Vertex& right_child,
+                                                             GetCancellationLengthFunctor get_cancellation_length,
+                                                             const Vertex& self) {
+      auto left_reduced = std::move(left_child.get_data<ReducedVertex>(get_cancellation_length, left_child).reduced_);
+      auto right_reduced = std::move(right_child.get_data<ReducedVertex>(get_cancellation_length, right_child).reduced_);
+      if (!left_reduced) {
+        return std::unique_ptr<StorageType>(new StorageType(std::move(right_reduced)));
+      }
+      NonterminalVertex result(left_reduced, right_reduced);
+      LongInteger cancellation_length = get_cancellation_length(result);
+      if (cancellation_length == 0) {
+        if (left_reduced == left_child && right_reduced == right_child) {
+          return std::unique_ptr<StorageType>(new StorageType(self.internal_abs()));
+        } else if (!left_reduced) {
+          return std::unique_ptr<StorageType>(new StorageType(std::move(right_reduced)));
+        } else if (!right_reduced) {
+          return std::unique_ptr<StorageType>(new StorageType(std::move(left_reduced)));
+        } else {
+          assert((result.height() > 1 && result.length() > 1) || (result.length() == 1 && result.height() == 1) || (result.length() == 0 && result.height() == 0));
+          return std::unique_ptr<StorageType>(new StorageType(std::move(result)));
+        }
+      } else {
+        Vertex remaining_prefix = get_sub_slp(left_reduced, 0, left_reduced.length() - cancellation_length);
+        Vertex remaining_suffix = get_sub_slp(right_reduced, cancellation_length, right_reduced.length());
+
+        if (!remaining_prefix && !remaining_suffix) {
+          return std::unique_ptr<StorageType>(new StorageType(Vertex()));
+        } else if (!remaining_prefix) {
+          assert(remaining_suffix.height() >= 1);
+          assert(remaining_suffix.height() != 1 || remaining_suffix.length() == 1);
+          return std::unique_ptr<StorageType>(new StorageType(std::move(remaining_suffix)));
+        } else if (!remaining_suffix) {
+          assert(remaining_prefix.height() >= 1);
+          assert(remaining_prefix.height() != 1 || remaining_prefix.length() == 1);
+          return std::unique_ptr<StorageType>(new StorageType(std::move(remaining_prefix)));
+        } else {
+          auto result = NonterminalVertex(remaining_prefix, remaining_suffix);
+          assert(result.length() > 1);
+          assert(result.height() > 1);
+          return std::unique_ptr<StorageType>(new StorageType(std::move(result)));
+        }
+      }
+    }
+
+    ReducedVertex(StorageType* storage, bool negate, GetCancellationLengthFunctor, const Vertex&)
+      : reduced_(negate ? storage->reduced_.negate() : storage->reduced_)
+    {
+    }
+
+    ReducedVertex(const Vertex& vertex, GetCancellationLengthFunctor, const Vertex&)
+      : reduced_(vertex)
+    { }
+};
+
 template <typename GetCancellationLengthFunctor>
 inline Vertex base_reduce(
     const Vertex& vertex,
     GetCancellationLengthFunctor get_cancellation_length,
     std::unordered_map<Vertex, Vertex>* reduced_vertices)
 {
-  map_vertices(vertex, reduced_vertices,
-    [get_cancellation_length](
-        const slp::Vertex& vertex,
-        const std::unordered_map<Vertex, Vertex>& reduced_vertices
-    ) -> Vertex {
-      if (vertex.height() <= 1) {
-        return vertex;
-      }
-      auto reversed = reduced_vertices.find(vertex.negate());
-      if (reversed != reduced_vertices.end()) {
-        return reversed->second.negate();
-      }
-      const Vertex& left = reduced_vertices.find(vertex.left_child())->second;
-      const Vertex& right = reduced_vertices.find(vertex.right_child())->second;
-      if (!left && !right) {
-        return Vertex();
-      } else {
-        NonterminalVertex result(left, right);
-        LongInteger cancellation_length = get_cancellation_length(result);
-        if (cancellation_length == 0) {
-          if (left == vertex.left_child() && right == vertex.right_child()) {
-            assert((vertex.height() > 1 && vertex.length() > 1) || (vertex.length() == 1 && vertex.height() == 1) || (vertex.length() == 0 && vertex.height() == 0));
-            return vertex;
-          } else if (!left) {
-            return right;
-          } else if (!right) {
-            return left;
-          } else {
-            assert((result.height() > 1 && result.length() > 1) || (result.length() == 1 && result.height() == 1) || (result.length() == 0 && result.height() == 0));
-            return result;
-          }
-        } else {
-          Vertex reduced_left = get_sub_slp(left, 0, left.length() - cancellation_length);
-          Vertex reduced_right = get_sub_slp(right, cancellation_length, right.length());
-
-          if (!reduced_left && !reduced_right) {
-            return Vertex();
-          } else if (!reduced_left) {
-            assert(reduced_right.height() >= 1);
-            assert(reduced_right.height() != 1 || reduced_right.length() == 1);
-            return reduced_right;
-          } else if (!reduced_right) {
-            assert(reduced_left.height() >= 1);
-            assert(reduced_left.height() != 1 || reduced_left.length() == 1);
-            return reduced_left;
-          } else {
-            auto result = NonterminalVertex(reduced_left, reduced_right);
-            assert(result.length() > 1);
-            assert(result.height() > 1);
-            return result;
-          }
-        }
-      }
-  });
-  return (*reduced_vertices)[vertex];
+  return vertex.get_data<ReducedVertex<GetCancellationLengthFunctor>>(get_cancellation_length, vertex).reduced_;
 }
 
 inline Vertex reduce(

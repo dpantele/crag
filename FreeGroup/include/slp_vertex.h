@@ -82,8 +82,8 @@ class Vertex {
       return vertex_signed_id_ < 0 ? this->negate() : *this;
     }
 
-    template <class DataType, typename... ConstructParams>
-    inline DataType get_data(ConstructParams&&... params) const;
+    template <class VertexDataAdapter, typename... ConstructParams>
+    inline typename VertexDataAdapter::DataType get_data(ConstructParams&&... params) const;
 
   protected:
     typedef std::allocator<internal::BasicVertex> VertexAllocator;
@@ -106,20 +106,37 @@ inline void PrintTo(const Vertex& vertex, ::std::ostream* os) {
   vertex.debug_print(os);
 }
 
-
-namespace internal {
+/**
+ * We have a special interface to store some information which is associated with
+ * the vertex. This information must have the following properties:
+ *   1. For non-terminal vertex it must be computed using references to the left and to the right child.
+ *   2. For non-terminal vertex it must be able to compute this information for 'inversed' vertex fast,
+ *      since the stored information doesn't have sign
+ *   3. No information can be stored for terminal or null vertices.
+ *
+ * All interactions with this information must be implemented through the adapter with the following interface:
+ *   1. typedef StorageType - some Type, which is inherited from struct VertexStorageEntry. This type is
+ *      stored for non-terminal vertices.
+ *   2. implement static std:unique_ptr<StorageType> create_storage_entry(const Vertex& left_child, const Vertex& right_child, ...) -
+ *      this method must create an instance of StorageType for some non-terminal vertex, whose children are passed in parameters.
+ *      All other parameters are just forwarded form the Vertex::get_data method
+ *   3. typedef DataType - the type which will actually be returned by Vertex::get_data method
+ *   4. implement static DataType get_data_for_storage_entry(StorageType*, bool negate, ... forwarded parameters from Vertex::get_data)
+ *      this method must process the storage entry of some non-terminal vertex, probably also negate it. The return will be forwarded
+ *      by Vertex::get_data
+ *   5. implement static DataType get_data_for_terminal(const Vertex&)
+ *      this method return the data for the terminal (or null) vertex. Must compute it straight from the vertex, but usually it is simple
+ */
+class VertexDataAdapter {
+  public:
+    VertexDataAdapter() {}
+};
 
 struct VertexStorageEntry {
   virtual ~VertexStorageEntry() {};
 };
 
-class VertexData {
-  public:
-    static std::unique_ptr<VertexStorageEntry> create_storage_entry(const Vertex& left_child, const Vertex& right_child);
-    VertexData(VertexStorageEntry*, bool negate);
-    VertexData(const Vertex& terminal_or_null_vertex);
-    VertexData() {}
-};
+namespace internal {
 
 class BasicVertex {
   public:
@@ -141,18 +158,18 @@ class BasicVertex {
       , right_child_(std::move(right_child))
     { }
 
-    template <class DataType, typename ... ConstructParams>
-    typename DataType::StorageType* get_basic_entry(ConstructParams&& ... params) {
-      typename DataType::StorageType* result = nullptr;
+    template <class VertexDataAdapter, typename ... ConstructParams>
+    typename VertexDataAdapter::StorageType* get_basic_entry(ConstructParams&& ... params) {
+      typename VertexDataAdapter::StorageType* result = nullptr;
       for (const auto& pointer : vertex_storage_) {
-        result = dynamic_cast<typename DataType::StorageType*>(pointer.get());
+        result = dynamic_cast<typename VertexDataAdapter::StorageType*>(pointer.get());
         if (result) {
           return result;
         }
       }
       //it is not yet in the list
-      vertex_storage_.push_front(DataType::create_storage_entry(left_child_, right_child_, params...));
-      return static_cast<typename DataType::StorageType*>(vertex_storage_.front().get());
+      vertex_storage_.push_front(VertexDataAdapter::create_storage_entry(left_child_, right_child_, params...));
+      return static_cast<typename VertexDataAdapter::StorageType*>(vertex_storage_.front().get());
     }
 };
 
@@ -226,12 +243,18 @@ inline void Vertex::debug_print(::std::ostream* out) const {
   }
 }
 
-template <class DataType, typename... ConstructParams>
-inline DataType Vertex::get_data(ConstructParams&&... params) const {
+template <class VertexDataAdapter, typename... ConstructParams>
+inline typename VertexDataAdapter::DataType Vertex::get_data(ConstructParams&&... params) const {
   if (vertex_) {
-    return DataType(vertex_->get_basic_entry<DataType>(std::forward<ConstructParams>(params)...), vertex_signed_id_ < 0, std::forward<ConstructParams>(params)...);
+    return VertexDataAdapter::get_data_for_storage_entry(
+        vertex_->get_basic_entry<VertexDataAdapter>(
+            std::forward<ConstructParams>(params)...
+        ),
+        vertex_signed_id_ < 0,
+        std::forward<ConstructParams>(params)...
+    );
   } else {
-    return DataType(*this, std::forward<ConstructParams>(params)...);
+    return VertexDataAdapter::get_data_for_terminal(*this, std::forward<ConstructParams>(params)...);
   }
 }
 

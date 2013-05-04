@@ -121,7 +121,7 @@ inline LongInteger get_cancellation_length(const Vertex& vertex) {
   return get_cancellation_length(vertex, &temp);
 }
 
-struct ReducedStorage : public internal::VertexStorageEntry {
+struct ReducedStorage : public VertexStorageEntry {
     Vertex reduced_;
     ReducedStorage(Vertex&& vertex)
       : reduced_(std::move(vertex))
@@ -129,18 +129,16 @@ struct ReducedStorage : public internal::VertexStorageEntry {
 };
 
 template <typename GetCancellationLengthFunctor>
-class ReducedVertex : public internal::VertexData {
+class ReducedVertex : public VertexDataAdapter {
   public:
     typedef ReducedStorage StorageType;
-
-    Vertex reduced_;
 
     static std::unique_ptr<StorageType> create_storage_entry(const Vertex& left_child,
                                                              const Vertex& right_child,
                                                              GetCancellationLengthFunctor get_cancellation_length,
                                                              const Vertex& self) {
-      auto left_reduced = std::move(left_child.get_data<ReducedVertex>(get_cancellation_length, left_child).reduced_);
-      auto right_reduced = std::move(right_child.get_data<ReducedVertex>(get_cancellation_length, right_child).reduced_);
+      auto left_reduced = left_child.get_data<ReducedVertex>(get_cancellation_length, left_child);
+      auto right_reduced = right_child.get_data<ReducedVertex>(get_cancellation_length, right_child);
       if (!left_reduced) {
         return std::unique_ptr<StorageType>(new StorageType(std::move(right_reduced)));
       }
@@ -180,14 +178,15 @@ class ReducedVertex : public internal::VertexData {
       }
     }
 
-    ReducedVertex(StorageType* storage, bool negate, GetCancellationLengthFunctor, const Vertex&)
-      : reduced_(negate ? storage->reduced_.negate() : storage->reduced_)
-    {
+    typedef Vertex DataType;
+
+    static Vertex get_data_for_storage_entry(StorageType* storage, bool negate, GetCancellationLengthFunctor, const Vertex&) {
+      return negate ? storage->reduced_.negate() : storage->reduced_;
     }
 
-    ReducedVertex(const Vertex& vertex, GetCancellationLengthFunctor, const Vertex&)
-      : reduced_(vertex)
-    { }
+    static Vertex get_data_for_terminal(const Vertex& vertex, GetCancellationLengthFunctor, const Vertex&) {
+      return vertex;
+    }
 };
 
 template <typename GetCancellationLengthFunctor>
@@ -196,7 +195,7 @@ inline Vertex base_reduce(
     GetCancellationLengthFunctor get_cancellation_length,
     std::unordered_map<Vertex, Vertex>* reduced_vertices)
 {
-  return vertex.get_data<ReducedVertex<GetCancellationLengthFunctor>>(get_cancellation_length, vertex).reduced_;
+  return vertex.get_data<ReducedVertex<GetCancellationLengthFunctor>>(get_cancellation_length, vertex);
 }
 
 inline Vertex reduce(

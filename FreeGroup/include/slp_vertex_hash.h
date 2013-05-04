@@ -288,7 +288,7 @@ class PermutationHash {
 } //namespace hashers
 
 template <class VertexHash>
-struct THashStorage : public internal::VertexStorageEntry {
+struct THashStorage : public VertexStorageEntry {
     VertexHash hash_;
     THashStorage(const VertexHash& other)
       : hash_(other)
@@ -296,26 +296,27 @@ struct THashStorage : public internal::VertexStorageEntry {
 };
 
 template <class VertexHash>
-class VertexHashData : public internal::VertexData {
+class VertexHashData : public VertexDataAdapter {
   public:
     typedef THashStorage<VertexHash> StorageType;
-    VertexHash hash_;
 
     static std::unique_ptr<StorageType> create_storage_entry(const Vertex& left_child, const Vertex& right_child) {
-      return std::unique_ptr<StorageType>(new StorageType(VertexHash(left_child.get_data<VertexHashData>().hash_) *= right_child.get_data<VertexHashData>().hash_));
+      return std::unique_ptr<StorageType>(new StorageType(left_child.get_data<VertexHashData>() *= right_child.get_data<VertexHashData>()));
     }
 
-    VertexHashData(StorageType* storage, bool negate)
-      : hash_(storage->hash_)
-    {
+    typedef VertexHash DataType;
+
+    static VertexHash get_data_for_storage_entry(StorageType* storage, bool negate) {
       if (negate) {
-        hash_.inverse_inplace();
+        return storage->hash_.inverse();
+      } else {
+        return storage->hash_;
       }
     }
 
-    VertexHashData(const Vertex& vertex)
-      : hash_(vertex.vertex_id())
-    { }
+    static VertexHash get_data_for_terminal(const Vertex& vertex) {
+      return VertexHash(vertex.vertex_id());
+    }
 };
 
 //! Here some algorithms which use hashed are implemented. Made for the convenience when using templates.
@@ -339,10 +340,10 @@ class TVertexHashAlgorithms {
         return Null;
       }
       if (root.height() == 1) {
-        return root.get_data<VertexHashData<VertexHash>>().hash_;
+        return root.get_data<VertexHashData<VertexHash>>();
       } else {
         if (begin == 0 && end == root.length()) {
-          return root.get_data<VertexHashData<VertexHash>>().hash_;
+          return root.get_data<VertexHashData<VertexHash>>();
         }
         if (root.split_point() >= end) {
           return get_subvertex_hash(root.left_child(), begin, end, cache);

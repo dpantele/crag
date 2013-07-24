@@ -561,6 +561,138 @@ void JezRules::empty_cleanup() {
   }
 }
 
+static JezRules* PairIndex::rules = nullptr;
+
+static void PairIndex::rebuild_index(JezRules* new_rules) {
+  rules = new_rules;
+
+  auto& pairs = get_index();
+
+  pairs.clear();
+  LetterLeftRight::right_letters_garbage_cleanup();
+
+  std::vector<std::tuple<
+      TerminalId, //first letter
+      TerminalId, //second letter
+      LetterPosition>> all_pairs; //reference to position
+
+  for (auto& rule : rules->rules_) {
+    for (
+        auto current = rule.begin(), next = std::next(rule.begin());
+        next != rule.end();
+        current = next, ++next
+    ) {
+      if (
+          current->last_terminal_letter_id() != next->first_terminal_letter_id()
+          //&& !current->is_power() && !next->is_power()
+      ) {
+        all_pairs.emplace_back(
+            current->last_terminal_letter_id(),
+            next->first_terminal_letter_id(),
+            LetterPosition(&rule, current)
+        );
+      }
+    }
+  }
+
+  std::sort(
+      all_pairs.begin(),
+      all_pairs.end(),
+      [] (const std::tuple<TerminalId, TerminalId, LetterPosition>& first,
+          const std::tuple<TerminalId, TerminalId, LetterPosition>& second) {
+        return std::get<0>(first) < std::get<0>(second) ||
+            (std::get<0>(first) == std::get<0>(second) &&
+             std::get<1>(first) < std::get<1>(second));
+      }
+  );
+
+  if (all_pairs.empty()) {
+    return;
+  }
+
+  auto left_letter_iterator = pairs.end();
+  auto right_letter_iterator = pairs.end();
+
+  decltype(right_letter_iterator->left_letters_.end()) left_list_current_letter;
+  decltype(left_letter_iterator->right_letters_.end()) right_list_current_letter;
+
+  for (const auto& pair: all_pairs) {
+    while (
+        left_letter_iterator != pairs.end() &&
+        left_letter_iterator->id_ < std::get<0>(pair)
+    ) {
+      ++left_letter_iterator;
+      right_letter_iterator = pairs.begin(); //TODO:optimize this
+      right_list_current_letter = left_letter_iterator->right_letters_.begin();
+      left_list_current_letter = right_letter_iterator->left_letters_.begin();
+    }
+    if (left_letter_iterator == pairs.end() ||
+        left_letter_iterator->id_ != std::get<0>(pair)
+    ) {
+      left_letter_iterator = pairs.emplace(left_letter_iterator, std::get<0>(pair));
+      right_letter_iterator = pairs.begin();
+      right_list_current_letter = left_letter_iterator->right_letters_.begin();
+      left_list_current_letter = right_letter_iterator->left_letters_.begin();
+    }
+
+    while (
+        right_list_current_letter != left_letter_iterator->right_letters_.end() &&
+        right_list_current_letter->id_ < std::get<1>(pair)
+    ) {
+      ++right_list_current_letter;
+    }
+
+    if (
+        right_list_current_letter == left_letter_iterator->right_letters_.end() ||
+        right_list_current_letter->id_ != std::get<1>(pair)
+    ) {
+      right_list_current_letter = left_letter_iterator->right_letters_.insert(
+          right_list_current_letter,
+          std::get<1>(pair)
+      );
+    }
+
+    right_list_current_letter->occurencies.push_back(std::get<2>(pair));
+    std::get<2>(pair).letter_->
+
+    while (
+        right_letter_iterator != pairs.end() &&
+        right_letter_iterator->id_ < std::get<1>(pair)
+    ) {
+      ++right_letter_iterator;
+      left_list_current_letter = right_letter_iterator->left_letters_.begin();
+    }
+
+    if (right_letter_iterator == pairs.end() ||
+        right_letter_iterator->id_ != std::get<1>(pair)
+    ) {
+      right_letter_iterator = pairs.insert(
+          right_letter_iterator,
+          std::get<1>(pair)
+      );
+
+      left_list_current_letter = right_letter_iterator->left_letters_.begin();
+    }
+
+    while (
+        left_list_current_letter != right_letter_iterator->left_letters_.end() &&
+        *left_list_current_letter < std::get<0>(pair)
+    ) {
+      ++left_list_current_letter;
+    }
+
+    if (
+        left_list_current_letter == right_letter_iterator->left_letters_.end() ||
+        *left_list_current_letter != std::get<0>(pair)
+    ) {
+      left_list_current_letter = right_letter_iterator->left_letters_.insert(
+          left_list_current_letter,
+          std::get<0>(pair)
+      );
+    }
+  }
+}
+
 OneStepPairs::OneStepPairs(JezRules* rules)
   : rules_(rules)
 {
@@ -893,7 +1025,7 @@ void OneStepPairs::compress_pairs_from_letter_lists(
               )
           ));
 
-          right_letter = pair.right_letters_.erase(right_letter);
+          right_letter = pair.delete_right_list(right_letter);
         } else {
           ++right_letter;
         }

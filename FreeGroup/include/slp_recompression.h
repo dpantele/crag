@@ -31,6 +31,75 @@ typedef mpz_class LetterPower;
 typedef int64_t TerminalId;
 
 class Rule;
+struct LetterPosition;
+
+//! Structure for indexing letter pairs
+struct LetterLeftRight {
+  TerminalId id_;
+
+  LetterLeftRight(TerminalId id)
+    : id_(id)
+  { }
+
+  struct RightListEntry {
+      RightListEntry(TerminalId right_id)
+        : id_(right_id)
+      { }
+
+      TerminalId id_;
+      std::vector<LetterPosition> occurencies;
+  };
+
+  std::list<RightListEntry> right_letters_;
+
+  static std::list<RightListEntry>& get_right_letters_garbage() {
+    static std::list<RightListEntry> garbage;
+    return garbage;
+  }
+
+  std::list<RightListEntry>::iterator delete_right_list(std::list<RightListEntry>::iterator position) {
+    std::list<RightListEntry>::iterator next = std::next(position);
+    get_right_letters_garbage().splice(position, right_letters_);
+    position->occurencies.empty();
+    return next;
+  }
+
+  static void right_letters_garbage_cleanup() {
+    get_right_letters_garbage().empty();
+  }
+
+  std::list<TerminalId> left_letters_;
+};
+
+class JezRules;
+
+struct PairIndex {
+  static std::list<LetterLeftRight>& get_index() {
+    static std::list<LetterLeftRight> index;
+    return index;
+  }
+
+  static JezRules* rules;
+
+  struct IndexItem {
+    LetterLeftRight::RightListEntry* right_list_;
+    std::vector<LetterPosition>::iterator pair_occurence_;
+
+    IndexItem()
+      : right_list_(nullptr)
+    { }
+
+    explicit operator bool() const {
+      return right_list_;
+    }
+
+    bool is_valid() const {
+      return right_list_ && !right_list_->occurencies.empty();
+    }
+  };
+
+  static void rebuild_index(JezRules* rules);
+};
 
 class RuleLetter {
   public:
@@ -121,9 +190,9 @@ class RuleLetter {
     LetterPower terminal_power_;
 
     Rule* nonterminal_rule_;
-};
 
-struct LetterPosition;
+    PairIndex::IndexItem pair_to_right_;
+};
 
 //! Definition of rule.
 /**
@@ -151,7 +220,8 @@ class Rule {
       return letters_.empty();
     }
 
-//    void clear();
+    //Clear is not looks like useful
+    //    void clear();
 
     size_t size() const {
       return letters_.size();
@@ -164,7 +234,6 @@ class Rule {
     const_iterator begin() const {
       return letters_.begin();
     }
-
 
     iterator end() {
       return letters_.end();
@@ -231,6 +300,13 @@ class Rule {
         RuleLetter::IterRef second,
         TerminalId new_terminal
     );
+
+    void register_pair_to_right(
+        std::list<LetterLeftRight::RightListEntry>::iterator right_list,
+        std::vector<LetterPosition> pair_occurence
+    ) {
+      pairs_to_right_.push_back(CrossingPairsIndexItem{right_list, pair_occurence});
+    }
 
     size_t debug_id;
 
@@ -371,39 +447,20 @@ class OneStepPairs {
     );
 
     void remove_crossing(
-        const std::unordered_set<TerminalId> & left_letters,
-        const std::unordered_set<TerminalId> & right_letters
+        const std::unordered_set<TerminalId>& left_letters,
+        const std::unordered_set<TerminalId>& right_letters
     );
 
     void compress_pairs_from_letter_lists(
-        const std::unordered_set<TerminalId> & left_letters,
-        const std::unordered_set<TerminalId> & right_letters
+        const std::unordered_set<TerminalId>& left_letters,
+        const std::unordered_set<TerminalId>& right_letters
     );
 
-
   private:
-    struct LetterLeftRight {
-      TerminalId id_;
-
-      LetterLeftRight(TerminalId id)
-        : id_(id)
-      { }
-
-      struct RightListEntry {
-          RightListEntry(TerminalId right_id)
-            : id_(right_id)
-          { }
-
-          TerminalId id_;
-          std::vector<LetterPosition> occurencies;
-      };
-
-      std::list<RightListEntry> right_letters_;
-      std::list<TerminalId> left_letters_;
-    };
 
     std::list<LetterLeftRight> pairs_;
     JezRules* rules_;
+
 };
 
 Vertex normal_form(Vertex root);

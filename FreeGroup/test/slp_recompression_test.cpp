@@ -59,13 +59,13 @@ TEST(Recompression, ConstructionFromSLP) {
   TerminalVertex b(2);
   NonterminalVertex ab(a, b);
   NonterminalVertex aa(a, a);
-  JezRules rules(ab);
-  JezRules rules_power(aa);
+  auto rules = JezRules::create(ab);
+  auto rules_power = JezRules::create(aa);
 
-  ASSERT_EQ(1, rules.vertex_rules_.size());
-  ASSERT_TRUE(rules.vertex_rules_.count(ab));
+  ASSERT_EQ(1, rules->vertex_rules_.size());
+  ASSERT_TRUE(rules->vertex_rules_.count(ab));
 
-  Rule& rule = *(rules.vertex_rules_.begin()->second);
+  Rule& rule = *(rules->vertex_rules_.begin()->second);
 
   EXPECT_EQ(2, rule.size());
 
@@ -86,8 +86,8 @@ TEST(Recompression, ConstructionFromSLP) {
   EXPECT_EQ(a_node.terminal_id(), rule.first_terminal_id());
   EXPECT_EQ(b_node.terminal_id(), rule.last_terminal_id());
 
-  ASSERT_EQ(1, rules_power.vertex_rules_.size());
-  ASSERT_TRUE(rules_power.vertex_rules_.count(aa));
+  ASSERT_EQ(1, rules_power->vertex_rules_.size());
+  ASSERT_TRUE(rules_power->vertex_rules_.count(aa));
 
   rule.delete_letter(rule.begin());
   EXPECT_TRUE(!a_node.is_valid());
@@ -95,7 +95,7 @@ TEST(Recompression, ConstructionFromSLP) {
   rule.delete_letter(rule.begin());
   EXPECT_TRUE(rule.empty());
 
-  Rule& rule_power = *(rules_power.vertex_rules_.begin()->second);
+  Rule& rule_power = *(rules_power->vertex_rules_.begin()->second);
 
   EXPECT_EQ(1, rule_power.size());
 
@@ -508,9 +508,9 @@ void normalization_steps_check(const Vertex& root) {
     return;
   }
 
-  JezRules rules(root);
+  auto rules = JezRules::create(root);
 
-  Rule& root_rule = *(rules.vertex_rules_[root]);
+  Rule& root_rule = *(rules->vertex_rules_[root]);
 
   std::vector<Vertex> naive_terminal_vertex;
   std::vector<int> naive_word;
@@ -529,18 +529,18 @@ void normalization_steps_check(const Vertex& root) {
         )) {
 #ifdef DEBUG_OUTPUT
     std::cout << "\n=================\n\nCurrent rules:" << std::endl;
-    rules.debug_print(&std::cout);
+    rules->debug_print(&std::cout);
 #endif
-    OneStepPairs pairs(&rules);
+    OneStepPairs pairs(rules.get());
 
-    rules.remove_crossing_blocks();
+    rules->remove_crossing_blocks();
 
 #ifdef DEBUG_OUTPUT
     std::cout << "Rules after RemCrBlocks: " << std::endl;
-    rules.debug_print(&std::cout);
+    rules->debug_print(&std::cout);
 #endif
 
-    auto blocks = rules.list_blocks();
+    auto blocks = rules->list_blocks();
 #ifdef DEBUG_OUTPUT
     std::cout << "\nFound blocks: " << std::endl;
     for (auto& block : blocks) {
@@ -550,11 +550,11 @@ void normalization_steps_check(const Vertex& root) {
     }
 #endif
 
-    rules.compress_blocks(blocks);
+    rules->compress_blocks(blocks);
 
 #ifdef DEBUG_OUTPUT
     std::cout << "Rules after CompressBlocks: " << std::endl;
-    rules.debug_print(&std::cout);
+    rules->debug_print(&std::cout);
 #endif
 
     ASSERT_GE(naive_word.size(), 2);
@@ -570,51 +570,39 @@ void normalization_steps_check(const Vertex& root) {
     ASSERT_TRUE(normal_naive_equal(root_rule, naive_word, 0)) <<
         "Representations after blocks compression are not equal";
 
-    std::vector<unsigned char> left_letters, right_letters;
-
-    std::tie(left_letters, right_letters) = pairs.greedy_pairs();
+    OneStepPairs::GreedyLettersSeparation letters_separation(pairs);
 #ifdef DEBUG_OUTPUT
-    std::cout << "\nGreedyPairs:\nLeft: ";
-
-    for (auto& terminal : left_letters) {
-      std::cout << terminal << ',';
-    }
-    std::cout << "\nRight: ";
-    for (auto& terminal : right_letters) {
-      std::cout << terminal << ',';
-    }
-    std::cout << std::endl;
+    letters_separation.debug_print(&std::cout);
 #endif
 
     std::set<int> naive_left_letters;
     std::set<int> naive_right_letters;
 
-    while (!left_letters.empty()) {
+    while (!letters_separation.empty()) {
       ASSERT_TRUE(!naive_pairs.empty());
 
       std:tie(naive_left_letters, naive_right_letters) =
           naive_Jez::greedy_pairs(naive_pairs);
 
-      ASSERT_EQ(naive_left_letters.size(), count(left_letters.begin(), left_letters.end(), 1));
-      ASSERT_EQ(naive_right_letters.size(), count(right_letters.begin(), right_letters.end(), 1));
+      ASSERT_EQ(naive_right_letters.size(), count(letters_separation.right_letters_.begin(), letters_separation.right_letters_.end(), 1));
 
       for (auto& letter : naive_left_letters) {
-        ASSERT_TRUE(letter < left_letters.size() && left_letters.at(letter))
+        ASSERT_TRUE(letters_separation.is_left_letter(letter))
             << "Left letter " << letter <<
             " is not among normal left letters";
       }
 
       for (auto& letter : naive_right_letters) {
-        ASSERT_TRUE(letter < right_letters.size() && right_letters.at(letter))
+        ASSERT_TRUE(letters_separation.is_right_letter(letter))
             << "Right letter " << letter
             << " is not among normal right letters";
       }
 
-      pairs.remove_crossing(left_letters, right_letters);
-      pairs.compress_pairs_from_letter_lists(left_letters, right_letters);
+      pairs.remove_crossing(letters_separation);
+      pairs.compress_pairs_from_letter_lists(letters_separation);
 #ifdef DEBUG_OUTPUT
       std::cout << "Rules after first compression: " << std::endl;
-      rules.debug_print(&std::cout);
+      rules->debug_print(&std::cout);
 #endif
 
       naive_word = naive_Jez::compress_pairs(
@@ -628,11 +616,12 @@ void normalization_steps_check(const Vertex& root) {
       ASSERT_TRUE(normal_naive_equal(root_rule, naive_word, 0)) <<
           "Representations after first pairs compression are not equal";
 
-      pairs.remove_crossing(right_letters, left_letters);
-      pairs.compress_pairs_from_letter_lists(right_letters, left_letters);
+      letters_separation.flip();
+      pairs.remove_crossing(letters_separation);
+      pairs.compress_pairs_from_letter_lists(letters_separation);
 #ifdef DEBUG_OUTPUT
       std::cout << "Rules after second compression: " << std::endl;
-      rules.debug_print(&std::cout);
+      rules->debug_print(&std::cout);
 #endif
 
       naive_word = naive_Jez::compress_pairs(
@@ -647,24 +636,15 @@ void normalization_steps_check(const Vertex& root) {
           "Representations after second pairs compression are not equal";
 
 
-      std::tie(left_letters, right_letters) = pairs.greedy_pairs();
+      letters_separation = OneStepPairs::GreedyLettersSeparation(pairs);
 #ifdef DEBUG_OUTPUT
-      std::cout << "\nGreedyPairs:\nLeft: ";
-
-      for (auto& terminal : left_letters) {
-        std::cout << terminal << ',';
-      }
-      std::cout << "\nRight: ";
-      for (auto& terminal : right_letters) {
-        std::cout << terminal << ',';
-      }
-      std::cout << std::endl;
+      letters_separation.debug_print(&std::cout);
 #endif
     }
 
     ASSERT_TRUE(naive_pairs.empty());
 
-    rules.empty_cleanup();
+    rules->empty_cleanup();
     Rule::collect_garbage();
   }
 }
@@ -678,7 +658,6 @@ TEST(Recompression, NormalFormEx1) {
   NonterminalVertex aba(ab, a);
   NonterminalVertex aaba(a, aba);
 
-  EXPECT_TRUE(is_normal_form(aaba, normal_form(aaba)));
   normalization_steps_check(aaba);
 }
 
@@ -690,7 +669,6 @@ TEST(Recompression, NormalFormEx2) {
   NonterminalVertex abba(ab, ba);
   NonterminalVertex babba(b, abba);
 
-  EXPECT_TRUE(is_normal_form(babba, normal_form(babba)));
   normalization_steps_check(babba);
 }
 
@@ -705,8 +683,6 @@ TEST(Recompression, NormalFormEx3) {
   NonterminalVertex bbcba(bbcb, a);
   NonterminalVertex abbcba(a, bbcba);
 
-  Vertex normal_form_abbcba = normal_form(abbcba);
-  EXPECT_TRUE(is_normal_form(abbcba, normal_form(abbcba)));
   normalization_steps_check(abbcba);
 }
 
@@ -717,7 +693,6 @@ TEST(Recompression, NormalFormEx4) {
   NonterminalVertex bab(b, ab);
   NonterminalVertex babab(bab, ab);
 
-  EXPECT_TRUE(is_normal_form(babab, normal_form(babab)));
   normalization_steps_check(babab);
 }
 
@@ -728,7 +703,6 @@ TEST(Recompression, NormalFormEx5) {
   NonterminalVertex baa(ba, a);
   NonterminalVertex babaa(ba, baa);
 
-  EXPECT_TRUE(is_normal_form(babaa, normal_form(babaa)));
   normalization_steps_check(babaa);
 }
 
@@ -738,7 +712,6 @@ TEST(Recompression, NormalFormEx6) {
   NonterminalVertex aaa(aa, a);
   NonterminalVertex aaaa(a, aaa);
 
-  EXPECT_TRUE(is_normal_form(aaaa, normal_form(aaaa)));
   normalization_steps_check(aaaa);
 }
 
@@ -751,7 +724,6 @@ TEST(Recompression, NormalFormEx7) {
   NonterminalVertex baba(b, aba);
   NonterminalVertex cbaba(c, baba);
 
-  EXPECT_TRUE(is_normal_form(cbaba, normal_form(cbaba)));
   normalization_steps_check(cbaba);
 }
 
@@ -788,7 +760,6 @@ TEST(Recompression, NormalFormEx8) {
   NonterminalVertex babab(bab, ab);
   NonterminalVertex babbabab(bab, babab);
 
-  EXPECT_TRUE(is_normal_form(babbabab, normal_form(babbabab)));
   normalization_steps_check(babbabab);
 }
 
@@ -801,7 +772,6 @@ TEST(Recompression, NormalFormEx9) {
   NonterminalVertex abcb(a, bcb);
   NonterminalVertex cabcb(c, abcb);
 
-  EXPECT_TRUE(is_normal_form(cabcb, normal_form(cabcb)));
   normalization_steps_check(cabcb);
 }
 
@@ -813,7 +783,6 @@ TEST(Recompression, NormalFormEx10) {
   NonterminalVertex babab(bab, ab);
   NonterminalVertex bababbab(babab, bab);
 
-  EXPECT_TRUE(is_normal_form(bababbab, normal_form(bababbab)));
   normalization_steps_check(bababbab);
 }
 
@@ -825,7 +794,6 @@ TEST(Recompression, NormalFormEx11) {
   NonterminalVertex aaab(a, aab);
   NonterminalVertex aaabaab(aaab, aab);
 
-  //EXPECT_TRUE(is_normal_form(aaabaab, normal_form(aaabaab)));
   normalization_steps_check(aaabaab);
 }
 
@@ -839,7 +807,6 @@ TEST(Recompression, NormalFormEx12) {
   NonterminalVertex aababaabaabab(aababaab, aabab);
   NonterminalVertex aababaabaababaababaab(aababaabaabab, aababaab);
 
-  //EXPECT_TRUE(is_normal_form(aababaabaababaababaab, normal_form(aababaabaababaababaab)));
   normalization_steps_check(aababaabaababaababaab);
 }
 
@@ -855,7 +822,6 @@ TEST(Recompression, NormalFormEx13) {
   NonterminalVertex abcababcb(abcab, abcb); //5
   NonterminalVertex abcababcababcb(abcab, abcababcb); //6
 
-  EXPECT_TRUE(is_normal_form(abcababcababcb, normal_form(abcababcababcb)));
   normalization_steps_check(abcababcababcb);
 }
 
@@ -880,7 +846,6 @@ TEST(Recompression, NormalFormEx14) {
   NonterminalVertex v14(v13, v4); //abaabcabaabaabcabaabaabcabaabaabcabaaba
   NonterminalVertex v15(v12, v14); //abaabcabaabaabcabaabaabcabaabaabaababaabcabaabaabcabaabaabaabcabaabaabcabaabaabcabaabaabcabaaba
 
-  EXPECT_TRUE(is_normal_form(v15, normal_form(v15)));
   normalization_steps_check(v15);
 }
 
@@ -906,7 +871,6 @@ TEST(Recompression, NormalFormEx15) {
   NonterminalVertex v15(v14, v12); //abababababcababababababababcababababababababcabababab
   NonterminalVertex v16(v10, v15); //ababcabababababcbababcababababababababcababababababababcababababababababcabababab
 
-  EXPECT_TRUE(is_normal_form(v16, normal_form(v16)));
   normalization_steps_check(v16);
 }
 
@@ -932,7 +896,6 @@ TEST(Recompression, NormalFormEx16) {
   NonterminalVertex v15(v14, v13); //abbcabcabcabcabbcabcabcabbcabcabcabcabbcabcabcabcabbcabcabcabcbcabcabbcabcabcabcabbcabcabcabcabbcabcabcabcbcabcabbcabcabcabcabbcabcabcabcbcabcabbcabcabcabcabbcabcabcabbcabcabcabcabbcabcabcabcabbcabcabcabcbcabcabbcabcabcabcabbcabcabcabcabbcabcabcabcbcabc
 
   normalization_steps_check(v15);
-  EXPECT_TRUE(is_normal_form(v15, normal_form(v15)));
 }
 
 TEST(Recompression, NormalFormEx17) {
@@ -983,6 +946,18 @@ TEST(Recompression, NormalFormEx19) {
   NonterminalVertex v1(c, b); //
   NonterminalVertex v2(v0, v1); //
   NonterminalVertex v3(v2, v1); //
+
+  normalization_steps_check(v3);
+}
+
+TEST(Recompression, NormalFormEx20) {
+  TerminalVertex a(1);
+  TerminalVertex b(2);
+  TerminalVertex c(3);
+  NonterminalVertex v0(a, b); //ab
+  NonterminalVertex v1(a, v0); //aab
+  NonterminalVertex v2(v1, c); //aabc
+  NonterminalVertex v3(v2, c); //aabcc
 
   normalization_steps_check(v3);
 }
@@ -1137,7 +1112,9 @@ TEST(Recompression, StressEndomorphismNormal) {
 
   while (--REPEAT >= 0) {
     Vertex slp = EndomorphismSLP<int>::composition(ENDOMORPHISMS_NUMBER, generator).image(1);
-    //std::cout << print_rules(slp) << std::endl;
+#ifdef DEBUG_OUTPUT
+    std::cout << print_rules(slp) << std::endl;
+#endif
     Vertex normal_slp = normal_form(slp);
 
     ASSERT_EQ(

@@ -60,7 +60,11 @@ class RuleLetter {
     }
 
     bool is_power() const {
-      return !is_nonterminal() && terminal_.power > 1;
+      return !is_nonterminal() && mpz_cmpabs_ui(terminal_.power.get_mpz_t(), 1u) > 0;
+    }
+
+    inline bool is_empty_terminal() const {
+      return !is_nonterminal() && sgn(terminal_.power) == 0;
     }
 
     inline bool is_empty_nonterminal() const;
@@ -73,6 +77,10 @@ class RuleLetter {
       return is_nonterminal() ? zero_power() : terminal_.power;
     }
 
+    int terminal_sgn() const {
+      return is_nonterminal() ? 0 : sgn(terminal_.power);
+    }
+
     Rule* nonterminal_rule() {
       return is_nonterminal() ? nonterminal_rule_ : nullptr;
     }
@@ -82,8 +90,10 @@ class RuleLetter {
     }
 
     inline TerminalId first_terminal_letter_id() const;
-
     inline TerminalId last_terminal_letter_id() const;
+
+    inline int first_terminal_letter_sign() const;
+    inline int last_terminal_letter_sign() const;
 
     explicit RuleLetter(Rule* vertex_rule)
       : status_(NON_TERMINAL)
@@ -245,6 +255,7 @@ class Rule {
     }
 
     std::pair<iterator, iterator> remove_empty_letter(iterator position);
+    std::pair<iterator, iterator> remove_empty_terminal(iterator position);
 
     Rule::iterator compress_power(iterator position, TerminalId new_terminal);
 
@@ -330,6 +341,34 @@ TerminalId RuleLetter::last_terminal_letter_id() const {
   }
 }
 
+int RuleLetter::first_terminal_letter_sign() const {
+  assert(!is_nonterminal() || !nonterminal_rule_->empty());
+
+  if (!is_nonterminal()) {
+    return terminal_sgn();
+  }
+
+  if (nonterminal_rule_->first_terminal_letter_) {
+    return first_terminal_ptr()->terminal_sgn();
+  } else {
+    return 0;
+  }
+}
+
+int RuleLetter::last_terminal_letter_sign() const {
+  assert(!is_nonterminal() || !nonterminal_rule_->empty());
+
+  if (!is_nonterminal()) {
+    return terminal_sgn();
+  }
+
+  if (nonterminal_rule_->last_terminal_letter_) {
+    return last_terminal_ptr()->terminal_sgn();
+  } else {
+    return 0;
+  }
+}
+
 const RuleLetter* RuleLetter::first_terminal_ptr() const {
   if (!is_nonterminal()) {
     return this;
@@ -375,7 +414,11 @@ inline void Rule::register_inclusion(Rule* rule, Rule::iterator letter) {
 }
 
 struct JezRules {
-    JezRules(const Vertex& slp);
+    static std::unique_ptr<JezRules> create(const Vertex& slp) {
+      auto rules = std::unique_ptr<JezRules>(new JezRules());
+      rules->initialize(slp);
+      return rules;
+    }
 
     void remove_crossing_blocks();
     std::vector<LetterPosition> list_blocks();
@@ -401,8 +444,16 @@ struct JezRules {
       return fresh_terminal_id_;
     }
 
-  private:
+    virtual ~JezRules() {}
+
+  protected:
     TerminalId fresh_terminal_id_;
+
+    JezRules()
+      : fresh_terminal_id_(0)
+    { }
+
+    virtual void initialize(const Vertex& root);
 
     RuleLetter get_letter(const Vertex& vertex) {
       if (vertex.height() > 1) {
@@ -427,8 +478,52 @@ class OneStepPairs {
   public:
     OneStepPairs(JezRules* rules);
 
-    std::tuple<std::vector<unsigned char>, std::vector<unsigned char>>
-    greedy_pairs() const;
+    struct GreedyLettersSeparation {
+        std::vector<unsigned char> right_letters_;
+        TerminalId id_shift_;
+        TerminalId max_id_;
+        bool flipped_;
+
+        GreedyLettersSeparation& operator=(GreedyLettersSeparation&& other) {
+          right_letters_ = std::move(other.right_letters_);
+          flipped_ = other.flipped_;
+          id_shift_ = other.id_shift_;
+          max_id_ = other.max_id_;
+
+          return *this;
+        }
+
+        GreedyLettersSeparation(const OneStepPairs& pairs);
+        bool is_right_letter(TerminalId letter) const {
+          if (letter >= 0) {
+            if (flipped_) {
+              return letter - id_shift_ >= 0 &&
+                  right_letters_.size() > letter - id_shift_ &&
+                  !right_letters_[letter - id_shift_];
+            } else {
+              return letter - id_shift_ >= 0 && letter <= max_id_ &&
+                  right_letters_.size() > letter - id_shift_ &&
+                  right_letters_[letter - id_shift_];
+            }
+          } else {
+            return !is_right_letter(-letter);
+          }
+        }
+
+        bool is_left_letter(TerminalId letter) const {
+          return abs(letter) <= max_id_ && !is_right_letter(letter);
+        }
+
+        bool empty() const {
+          return right_letters_.empty();
+        }
+
+        void flip() {
+          flipped_ = !flipped_;
+        }
+
+        void debug_print(std::ostream* os) const;
+   };
 
     TerminalId compress_pair(
         TerminalId first,
@@ -437,13 +532,11 @@ class OneStepPairs {
     );
 
     void remove_crossing(
-        const std::vector<unsigned char> & left_letters,
-        const std::vector<unsigned char> & right_letters
+        const GreedyLettersSeparation& letters_separation
     );
 
     void compress_pairs_from_letter_lists(
-        const std::vector<unsigned char> & left_letters,
-        const std::vector<unsigned char> & right_letters
+        const GreedyLettersSeparation& letters_separation
     );
 
 
@@ -504,6 +597,7 @@ inline T reverse_bits(T value) {
 #define SIZ(x) ((x)->_mp_size)
 #define PTR(x) ((x)->_mp_d)
 #define ABS(x) ((x) >= 0 ? (x) : -(x))
+#define ABSIZ(x) ABS (SIZ (x))
 inline bool reverse_bit_mpz_less(const LetterPower& first, const LetterPower& second) {
   mp_size_t  usize, vsize, msize, dsize, asize;
   mpz_srcptr u = first.get_mpz_t();
@@ -511,8 +605,8 @@ inline bool reverse_bit_mpz_less(const LetterPower& first, const LetterPower& se
   mp_srcptr  up, vp;
   int        cmp;
 
-  usize = SIZ(u);
-  vsize = SIZ(v);
+  usize = ABSIZ(u);
+  vsize = ABSIZ(v);
   dsize = usize - vsize;
   msize = dsize < 0 ? usize : vsize;
 
@@ -538,9 +632,20 @@ inline bool reverse_bit_mpz_less(const LetterPower& first, const LetterPower& se
   return dsize < 0;
 }
 
+//1, -1, 2, -2, 3, -3, ...
+inline bool signed_id_less(TerminalId first, TerminalId second) {
+  if (abs(first) < abs(second)) {
+    return true;
+  } else if (abs(first) == abs(second)) {
+    return first > second;
+  }
+  return false;
+}
+
 #undef SIZ
 #undef PTR
 #undef ABS
+#undef ABSIZ
 } //namespace mad_sorts
 
 }

@@ -11,6 +11,8 @@
 #include "slp_vertex_hash.h"
 #include "EndomorphismSLP.h"
 
+//#define DEBUG_OUTPUT
+
 namespace crag {
 namespace slp {
 namespace recompression {
@@ -502,7 +504,6 @@ void debug_print_exposed(const std::vector<int>& word, ::std::ostream* os, int s
   }
 }
 
-//#define DEBUG_OUTPUT
 void normalization_steps_check(const Vertex& root) {
   if (root.height() < 2) {
     return;
@@ -644,7 +645,7 @@ void normalization_steps_check(const Vertex& root) {
 
     ASSERT_TRUE(naive_pairs.empty());
 
-    rules->empty_cleanup();
+    //rules->empty_cleanup();
     Rule::collect_garbage();
   }
 }
@@ -1262,8 +1263,6 @@ TEST(JezReduce, ReduceEx5) {
   );
 }
 
-
-#define DEBUG_OUTPUT
 TEST(JezReduce, StressTest) {
   const size_t REPEAT = 1000;
   constexpr size_t RANK = 3;

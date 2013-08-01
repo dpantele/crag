@@ -269,6 +269,8 @@ class Rule {
         TerminalId new_terminal
     );
 
+    iterator merge_letters(iterator current, iterator next);
+
     size_t debug_id;
 
     void debug_print(::std::ostream* os) const;
@@ -300,6 +302,8 @@ class Rule {
     std::list<RuleLetter> letters_;
     mutable RuleLetter* first_terminal_letter_;
     mutable RuleLetter* last_terminal_letter_;
+
+  public:
     std::vector<LetterPosition> nonterminal_index_;
 };
 
@@ -424,7 +428,7 @@ struct JezRules {
       return rules;
     }
 
-    void remove_crossing_blocks();
+    size_t remove_crossing_blocks();
     std::vector<LetterPosition> list_blocks();
 
     void compress_blocks(const std::vector<LetterPosition>& blocks);

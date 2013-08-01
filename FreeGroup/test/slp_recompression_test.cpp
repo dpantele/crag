@@ -969,7 +969,7 @@ std::string print_rules(const Vertex& slp) {
   //std::unordered_map<Vertex, std::string> vertex_strings;
   std::stringstream rules;
   auto acceptor = [&vertex_rules] (const inspector::InspectorTask& task) {
-    return vertex_rules.count(task.vertex) == 0;
+    return vertex_rules.count(task.vertex) == 0 && vertex_rules.count(task.vertex.negate()) == 0;
     //true only if vertex is not visited yet and it is not terminal
   };
   Inspector<inspector::Postorder, decltype(acceptor)> inspector(slp, acceptor);
@@ -985,17 +985,28 @@ std::string print_rules(const Vertex& slp) {
       Vertex left = inspector.vertex().left_child();
       Vertex right = inspector.vertex().right_child();
 
-      std::string& left_rule = vertex_rules[left];
-      std::string& right_rule = vertex_rules[right];
+      auto left_rule = vertex_rules.find(left);
+
+      if (left_rule == vertex_rules.end()) {
+        left_rule = vertex_rules.find(left.negate());
+        assert(left_rule != vertex_rules.end());
+      }
+
+      auto right_rule = vertex_rules.find(right);
+
+      if (right_rule == vertex_rules.end()) {
+        right_rule = vertex_rules.find(right.negate());
+        assert(right_rule != vertex_rules.end());
+      }
+
       std::stringstream vertex_rule;
       vertex_rule << "v" << rule_count++;
       vertex_rules[inspector.vertex()] = vertex_rule.str();
 //      vertex_strings[inspector.vertex()] = vertex_strings[left] + vertex_strings[right];
       rules << "  NonterminalVertex "
             << vertex_rules[inspector.vertex()]
-            << "(" << left_rule << ", " << right_rule << "); //"
-//            << vertex_strings[inspector.vertex()]
-            << "\n";
+            << "(" << left_rule->second << (left_rule->first == left ? "" : ".negate()") << ", "
+                  << right_rule->second << (right_rule->first == right ? "" : ".negate()") << ");\n";
     }
 
     inspector.next();
@@ -1009,19 +1020,7 @@ std::string print_rules(const Vertex& slp) {
     terminal_rules += ");\n";
   }
 
-  rules << "\n  Vertex normal_form_";
-  rules << vertex_rules[slp];
-  rules << "= normal_form(";
-  rules << vertex_rules[slp];
-  rules << ");\n";
-
-  rules << "EXPECT_TRUE(is_normal_form(";
-  rules << vertex_rules[slp];
-  rules << ", normal_form(";
-  rules << vertex_rules[slp];
-  rules << ")));\n";
-
-  return terminal_rules + rules.str();
+  return std::string("TEST(, ) {\n") + terminal_rules + rules.str() + "}\n";
 }
 
 TEST(Recompression, StressNormalForm) {
@@ -1182,6 +1181,128 @@ TEST(Recompression, StressEndomorphismNormal) {
   }
 
 }
+
+TEST(JezReduce, ReduceEx1) {
+  TerminalVertex a(1);
+  TerminalVertex b(2);
+  TerminalVertex c(3);
+
+  NonterminalVertex v1(a, a.negate());
+
+  ASSERT_EQ(Vertex(), recompression::reduce(v1));
+}
+
+TEST(JezReduce, ReduceEx2) {
+  TerminalVertex a(1);
+  TerminalVertex b(2);
+  TerminalVertex c(3);
+
+  NonterminalVertex v1(a, b);
+  NonterminalVertex v2(a.negate(), v1);
+
+  ASSERT_EQ(b, recompression::reduce(v2));
+}
+
+TEST(JezReduce, ReduceEx3) {
+  TerminalVertex a(1);
+  TerminalVertex b(2);
+  TerminalVertex c(3);
+
+  NonterminalVertex v1(b, c);
+  NonterminalVertex v2(a, v1);
+  NonterminalVertex v3(v2, v1.negate());
+
+  ASSERT_EQ(a, recompression::reduce(v3));
+}
+
+typedef crag::slp::TVertexHashAlgorithms<
+    crag::slp::hashers::SinglePowerHash,
+    crag::slp::hashers::PermutationHash<crag::Permutation16>
+> WeakVertexHashAlgorithms;
+
+TEST(JezReduce, ReduceEx4) {
+  TerminalVertex a(1);
+  TerminalVertex b(2);
+  TerminalVertex c(3);
+  NonterminalVertex v0(b, c);
+  NonterminalVertex v1(v0, a.negate());
+  NonterminalVertex v2(a, v1);
+
+  auto slp = v2;
+  auto reduced = recompression::reduce(slp);
+
+  ASSERT_EQ(
+    VertexWord<int>(reduced),
+    VertexWord<int>(
+      recompression::normal_form(
+        WeakVertexHashAlgorithms::reduce(slp)
+      )
+    )
+  );
+}
+
+TEST(JezReduce, ReduceEx5) {
+  TerminalVertex a(1);
+  TerminalVertex b(2);
+  TerminalVertex c(3);
+  NonterminalVertex v0(a, b);
+  NonterminalVertex v1(b.negate(), c);
+  NonterminalVertex v2(v0, v1);
+
+  auto slp = v2;
+  auto reduced = recompression::reduce(slp);
+
+  ASSERT_EQ(
+    VertexWord<int>(reduced),
+    VertexWord<int>(
+      recompression::normal_form(
+        WeakVertexHashAlgorithms::reduce(slp)
+      )
+    )
+  );
+}
+
+
+#define DEBUG_OUTPUT
+TEST(JezReduce, StressTest) {
+  const size_t REPEAT = 1000;
+  constexpr size_t RANK = 3;
+  const size_t ENDOMORPHISMS_NUMBER = 5;
+
+  size_t seed = 11;
+  while (++seed <= REPEAT) {
+    UniformAutomorphismSLPGenerator<int> generator(RANK, seed);
+    auto image = EndomorphismSLP<int>::composition(ENDOMORPHISMS_NUMBER, generator).image(1);
+
+#ifdef DEBUG_OUTPUT
+    std::cout << print_rules(image) << std::endl;
+    std::cout << VertexWord<int>(image) << std::endl;
+#endif
+    Vertex reduced = recompression::reduce(image);
+
+    std::vector<int> reduced_image;
+    for (auto symbol : VertexWord<int>(image)) {
+      if (!reduced_image.empty() && symbol == -reduced_image.back()) {
+        reduced_image.pop_back();
+      } else {
+        reduced_image.push_back(symbol);
+      }
+    }
+    std::ostringstream reduced_image_string;
+    std::copy(reduced_image.begin(), reduced_image.end(), std::ostream_iterator<int>(reduced_image_string, ""));
+    auto correct_symbol = reduced_image.begin();
+    for (auto symbol : VertexWord<int>(reduced)) {
+      ASSERT_EQ(*correct_symbol, symbol) << seed << std::endl
+          << print_tree_preorder_single(image) << std::endl
+          << print_tree_preorder_single(reduced) << std::endl
+          << VertexWord<int>(image) << std::endl
+          << VertexWord<int>(reduced) << std::endl
+          << reduced_image_string.str() << std::endl;
+      ++correct_symbol;
+    }
+  }
+}
+
 
 
 

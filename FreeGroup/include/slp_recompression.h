@@ -192,6 +192,10 @@ class Rule {
       return letters_.empty();
     }
 
+    bool is_trivial() const {
+      return empty() || (!begin()->is_power() && std::next(begin()) == end() && (!begin()->is_nonterminal() || begin()->nonterminal_rule()->is_trivial()));
+    }
+
     size_t size() const {
       return letters_.size();
     }
@@ -455,7 +459,7 @@ struct JezRules {
 
     virtual void initialize(const Vertex& root);
 
-    RuleLetter get_letter(const Vertex& vertex) {
+    virtual RuleLetter get_letter(const Vertex& vertex) {
       if (vertex.height() > 1) {
         assert(vertex_rules_.count(vertex));
         return RuleLetter(vertex_rules_[vertex]);
@@ -506,7 +510,7 @@ class OneStepPairs {
                   right_letters_[letter - id_shift_];
             }
           } else {
-            return !is_right_letter(-letter);
+            return -letter <= max_id_ && !is_right_letter(-letter);
           }
         }
 
@@ -566,6 +570,40 @@ class OneStepPairs {
 };
 
 Vertex normal_form(Vertex root);
+
+struct JezReducingRules : public JezRules {
+    static std::unique_ptr<JezReducingRules> create(const Vertex& slp) {
+      auto rules = std::unique_ptr<JezReducingRules>(new JezReducingRules());
+      rules->initialize(slp);
+      return rules;
+    }
+    bool remove_empty_terminals();
+  protected:
+    virtual RuleLetter get_letter(const Vertex& vertex) {
+      if (vertex.height() > 1) {
+        assert(vertex_rules_.count(vertex));
+        return RuleLetter(vertex_rules_[vertex]);
+      }
+
+      auto negated_terminal = vertex_terminals_.find(vertex.negate());
+
+      if (negated_terminal != vertex_terminals_.end()) {
+        return RuleLetter(negated_terminal->second, -1);
+      }
+
+      auto rules_terminal = vertex_terminals_.insert(std::make_pair(vertex, 0));
+
+      if (rules_terminal.second) {
+        (rules_terminal.first->second) = next_fresh_terminal();
+        terminal_vertices_[rules_terminal.first->second] = vertex;
+      }
+
+      return RuleLetter(rules_terminal.first->second, 1);
+    }
+};
+
+Vertex reduce(Vertex root);
+
 
 namespace mad_sorts {
 inline unsigned char reverse_bits_in_byte(unsigned char byte) {

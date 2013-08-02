@@ -65,7 +65,7 @@ int main() {
   gmp_pool_setup();
   int REPEAT = 1;
   constexpr size_t RANK = 6;
-  constexpr size_t ENDOMORPHISMS_NUMBER = 300;
+  constexpr size_t ENDOMORPHISMS_NUMBER = 200;
   size_t seed = 112233;
   UniformAutomorphismSLPGenerator<int> generator(RANK, seed);
   auto begin = std::chrono::system_clock::now();

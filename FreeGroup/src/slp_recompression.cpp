@@ -253,6 +253,8 @@ void JezRules::initialize(const Vertex& slp)
   };
   Inspector<inspector::Postorder, decltype(acceptor)> inspector(slp, acceptor);
 
+  size_t rule_debug_id = 0;
+
   while (!inspector.stopped()) {
     if (inspector.vertex().height() < 2) {
       get_letter(inspector.vertex());
@@ -264,7 +266,8 @@ void JezRules::initialize(const Vertex& slp)
         get_letter(left),
         get_letter(right)
       });
-      rules_.back().debug_id = rules_.size() - 1;
+
+      rules_.back().debug_id = rule_debug_id++;
 
       vertex_rules_.insert(
         std::make_pair(
@@ -1037,11 +1040,16 @@ Vertex reduce(Vertex root) {
   bool reduced = false;
   bool normalized = false;
 
+  size_t iterations = 0;
+
   while (root.height() > 1 && !reduced) {
+    ++iterations;
     reduced = true;
     auto rules = JezReducingRules::create(root);
 
     Rule* root_rule = rules->vertex_rules_[root];
+
+    std::cout << "Iteration " << iterations << ", size: " << root_rule->debug_id + 1<< std::endl;
 
     while (!root_rule->is_trivial()) {
 #ifdef DEBUG_OUTPUT
@@ -1120,6 +1128,7 @@ Vertex reduce(Vertex root) {
       root = Vertex();
     }
   }
+  std::cout << "Iterations: " << iterations << std::endl;
   return root;
 }
 

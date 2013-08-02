@@ -177,7 +177,7 @@ Rule::iterator Rule::compress_power(Rule::iterator position, TerminalId new_term
   position->terminal_.id = new_terminal;
   position->terminal_.power = position->terminal_sgn();
 
-  assert(position == begin() || !std::prev(position)->is_power_of(new_terminal));
+  //assert(position == begin() || !std::prev(position)->is_power_of(new_terminal));
   assert(std::next(position) == end() || !std::next(position)->is_power_of(new_terminal));
 
   return position;
@@ -282,11 +282,25 @@ size_t JezRules::remove_crossing_blocks() {
   for (auto& rule : rules_) {
     auto current = rule.begin();
 
+
     while (current != rule.end()) {
+      while (current != rule.end() && current->is_empty_nonterminal()) {
+        current = rule.remove_empty_letter(current).second;
+      }
+
+      if (current == rule.end()) {
+        break;
+      }
+
       assert(!current->is_empty_nonterminal());
       assert(current->is_valid());
       assert(!current->is_empty_terminal());
       auto next = std::next(current);
+      while (next != rule.end() && next->is_empty_nonterminal()) {
+        next = rule.remove_empty_letter(next).second;
+      }
+
+      assert(std::next(current) == next);
       assert(next == rule.end() || !next->is_empty_nonterminal());
       assert(next == rule.end() || !next->is_empty_terminal());
 
@@ -317,12 +331,6 @@ size_t JezRules::remove_crossing_blocks() {
         if (current->is_empty_terminal()) {
           ++eliminated_blocks_count;
           current = rule.remove_empty_letter(current).second;
-        }
-
-        if (rule.empty()) {
-          for (auto & occurence : rule.nonterminal_index_) {
-            occurence.rule_->remove_empty_letter(occurence.letter_);
-          }
         }
       } else {
         current = next;
@@ -703,7 +711,8 @@ void OneStepPairs::remove_crossing(
     while (current != rule.end() && next != rule.end()) {
       assert(!next->is_empty_nonterminal());
 
-      if (letters_separation.is_left_letter(current->last_terminal_letter_id() * current->last_terminal_letter_sign()) &&
+      if (current->last_terminal_letter_id() != next->first_terminal_letter_id() && //we need this because if 1 is left letter, then -1 is right letter :-(
+          letters_separation.is_left_letter(current->last_terminal_letter_id() * current->last_terminal_letter_sign()) &&
           letters_separation.is_right_letter(next->first_terminal_letter_id() * next->first_terminal_letter_sign()))
       {
         current = rule.pop_last_from_letter(current);
@@ -1028,55 +1037,73 @@ Vertex reduce(Vertex root) {
   bool reduced = false;
   bool normalized = false;
 
-  while (root && !reduced) {
+  while (root.height() > 1 && !reduced) {
+    reduced = true;
     auto rules = JezReducingRules::create(root);
 
     Rule* root_rule = rules->vertex_rules_[root];
 
     while (!root_rule->is_trivial()) {
+#ifdef DEBUG_OUTPUT
       std::cout << "\n=================\n\nCurrent rules:" << std::endl;
       rules->debug_print(&std::cout);
-      reduced = !rules->remove_crossing_blocks();
+#endif
 
+      reduced = !rules->remove_crossing_blocks() && reduced;
+
+#ifdef DEBUG_OUTPUT
       std::cout << "Rules after RemCrBlocks: " << std::endl;
       rules->debug_print(&std::cout);
+#endif
 
       OneStepPairs pairs(rules.get());
 
       auto blocks = rules->list_blocks();
+#ifdef DEBUG_OUTPUT
       std::cout << "\nFound blocks: " << std::endl;
       for (auto& block : blocks) {
         std::cout << block.rule_->debug_id << ':';
         block.letter_->debug_print(&std::cout);
         std::cout << std::endl;
       }
+#endif
 
       rules->compress_blocks(blocks);
 
+#ifdef DEBUG_OUTPUT
       std::cout << "Rules after CompressBlocks: " << std::endl;
       rules->debug_print(&std::cout);
+#endif
 
       OneStepPairs::GreedyLettersSeparation letters_separation(pairs);
+
+#ifdef DEBUG_OUTPUT
       letters_separation.debug_print(&std::cout);
+#endif
 
       while (!letters_separation.empty()) {
         pairs.remove_crossing(letters_separation);
         pairs.compress_pairs_from_letter_lists(letters_separation);
+#ifdef DEBUG_OUTPUT
         std::cout << "Rules after first compression: " << std::endl;
         rules->debug_print(&std::cout);
+#endif
 
         letters_separation.flip();
         pairs.remove_crossing(letters_separation);
         pairs.compress_pairs_from_letter_lists(letters_separation);
+#ifdef DEBUG_OUTPUT
         std::cout << "Rules after second compression: " << std::endl;
         rules->debug_print(&std::cout);
+#endif
         letters_separation = OneStepPairs::GreedyLettersSeparation(pairs);
+
+#ifdef DEBUG_OUTPUT
         letters_separation.debug_print(&std::cout);
+#endif
       }
 //      rules->empty_cleanup();
     }
-
-    normalized = true;
 
     Rule::collect_garbage();
     if (!root_rule->empty()) {

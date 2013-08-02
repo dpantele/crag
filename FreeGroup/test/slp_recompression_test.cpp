@@ -11,8 +11,6 @@
 #include "slp_vertex_hash.h"
 #include "EndomorphismSLP.h"
 
-//#define DEBUG_OUTPUT
-
 namespace crag {
 namespace slp {
 namespace recompression {
@@ -1263,16 +1261,117 @@ TEST(JezReduce, ReduceEx5) {
   );
 }
 
-TEST(JezReduce, StressTest) {
-  const size_t REPEAT = 1000;
-  constexpr size_t RANK = 3;
-  const size_t ENDOMORPHISMS_NUMBER = 5;
+TEST(JezReduce, ReduceEx6) {
+  TerminalVertex a(1);
+  TerminalVertex b(2);
+  NonterminalVertex v0(a, b);
+  NonterminalVertex v1(b.negate(), v0.negate());
+  NonterminalVertex v2(v0.negate(), v1);
+  NonterminalVertex v3(v0, v2);
 
-  size_t seed = 11;
+  auto slp = v3;
+  auto reduced = recompression::reduce(slp);
+
+  ASSERT_EQ(
+    VertexWord<int>(reduced),
+    VertexWord<int>(
+      recompression::normal_form(
+        WeakVertexHashAlgorithms::reduce(slp)
+      )
+    )
+  );
+}
+
+TEST(JezReduce, ReduceEx7) {
+  TerminalVertex a(1);
+  TerminalVertex b(2);
+  TerminalVertex c(3);
+  NonterminalVertex v0(b, c);
+  NonterminalVertex v1(v0, a);
+  NonterminalVertex v2(a, v1);
+  NonterminalVertex v3(v1.negate(), v2.negate());
+  NonterminalVertex v4(v2, v3);
+
+  auto slp = v4;
+  auto reduced = recompression::reduce(slp);
+
+  ASSERT_EQ(
+    VertexWord<int>(reduced),
+    VertexWord<int>(
+      recompression::normal_form(
+        WeakVertexHashAlgorithms::reduce(slp)
+      )
+    )
+  );
+}
+
+TEST(JezReduce, ReduceEx8) {
+  TerminalVertex a(1);
+  TerminalVertex b(2);
+  TerminalVertex c(3);
+  NonterminalVertex v0(b, c);
+  NonterminalVertex v1(v0, a);
+  NonterminalVertex v2(a.negate(), b.negate());
+  NonterminalVertex v3(v2, v1.negate());
+  NonterminalVertex v4(v3, v1);
+  NonterminalVertex v5(a, v4);
+  NonterminalVertex v6(v1, v5);
+  NonterminalVertex v7(a, v6);
+  NonterminalVertex v8(v7, v6);
+
+  auto slp = v8;
+  auto reduced = recompression::reduce(slp);
+
+  ASSERT_EQ(
+    VertexWord<int>(reduced),
+    VertexWord<int>(
+      recompression::normal_form(
+        WeakVertexHashAlgorithms::reduce(slp)
+      )
+    )
+  );
+}
+
+TEST(JezReduce, ReduceEx9) {
+  TerminalVertex a(1);
+  TerminalVertex b(2);
+  TerminalVertex c(3);
+  NonterminalVertex v0(b, c);
+  NonterminalVertex v1(v0, b);
+  NonterminalVertex v2(a, v1);
+  NonterminalVertex v3(v2, v1);
+  NonterminalVertex v4(v3, v1);
+  NonterminalVertex v5(v4, v3.negate());
+  NonterminalVertex v6(v0.negate(), v1.negate());
+  NonterminalVertex v7(v6, v3.negate());
+  NonterminalVertex v8(v5, v7);
+  NonterminalVertex v9(v8, v5);
+  NonterminalVertex v10(v8, v9);
+
+  auto slp = v10;
+  auto reduced = recompression::reduce(slp);
+
+  ASSERT_EQ(
+    VertexWord<int>(reduced),
+    VertexWord<int>(
+      recompression::normal_form(
+        WeakVertexHashAlgorithms::reduce(slp)
+      )
+    )
+  );
+}
+
+TEST(JezReduce, StressTest) {
+  const size_t REPEAT = 10000;
+  constexpr size_t RANK = 3;
+  const size_t ENDOMORPHISMS_NUMBER = 20;
+
+  size_t seed = 0;
   while (++seed <= REPEAT) {
+    std::cout << seed << std::endl;
     UniformAutomorphismSLPGenerator<int> generator(RANK, seed);
     auto image = EndomorphismSLP<int>::composition(ENDOMORPHISMS_NUMBER, generator).image(1);
-
+//
 #ifdef DEBUG_OUTPUT
     std::cout << print_rules(image) << std::endl;
     std::cout << VertexWord<int>(image) << std::endl;

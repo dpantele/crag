@@ -21,59 +21,52 @@ typedef mpz_class LongInteger;
 namespace crag {
 namespace slp {
 
-namespace internal {
-class BasicVertex;
-struct BasicVertexAllocatorTag{};
-typedef boost::fast_pool_allocator<BasicVertex, boost::default_user_allocator_malloc_free, boost::details::pool::null_mutex, 1, 0> BasicVertexPoolAllocator;
-}
-
 //! Basic interface for vertex. Also represents empty vertex, use Vertex() as empty vertex
 class Vertex {
   public:
     //! Default constructor generating empty vertex.
-    constexpr Vertex()
+    constexpr Vertex() noexcept
       : vertex_signed_id_(0)
       , vertex_(nullptr)
     {}
 
-    bool operator==(const Vertex& other) const {
+    bool operator==(const Vertex& other) const noexcept {
       return
           vertex_signed_id_ == other.vertex_signed_id_ &&
-          //((vertex_ && other.vertex_) || (!vertex_ && !other.vertex_));
           vertex_ == other.vertex_;
     }
 
-    bool operator!=(const Vertex& other) const {
+    bool operator!=(const Vertex& other) const noexcept {
       return !(*this == other);
     }
 
     //! Return vertex produces the reversed word
-    Vertex negate() const {
+    Vertex negate() const noexcept {
       return Vertex(-vertex_signed_id_, std::shared_ptr<internal::BasicVertex>(vertex_));
     }
 
-    inline Vertex left_child() const;
+    inline Vertex left_child() const noexcept;
 
-    inline Vertex right_child() const;
+    inline Vertex right_child() const noexcept;
 
     const LongInteger& split_point() const;
 
     const LongInteger& length() const;
 
-    unsigned int height() const;
+    unsigned int height() const noexcept;
 
-    size_t vertex_hash() const {
+    size_t vertex_hash() const noexcept {
       return vertex_id_hash_(vertex_signed_id_);
     }
 
-    explicit operator bool() const {
+    explicit operator bool() const noexcept {
       return vertex_signed_id_;
     }
 
     inline void debug_print(::std::ostream* out) const;
 
     typedef int64_t VertexSignedId;
-    VertexSignedId vertex_id() const {
+    VertexSignedId vertex_id() const noexcept {
       return vertex_signed_id_;
     }
 
@@ -84,7 +77,7 @@ class Vertex {
     std::shared_ptr<internal::BasicVertex> vertex_;
     static constexpr std::hash<VertexSignedId> vertex_id_hash_ = std::hash<VertexSignedId>();
 
-    Vertex(VertexSignedId vertex_signed_id, std::shared_ptr<internal::BasicVertex>&& vertex)
+    Vertex(VertexSignedId vertex_signed_id, std::shared_ptr<internal::BasicVertex>&& vertex) noexcept
       : vertex_signed_id_(vertex_signed_id)
       , vertex_(std::move(vertex))
     {
@@ -122,7 +115,7 @@ class BasicVertex {
 
 }
 
-inline Vertex Vertex::left_child() const {
+inline Vertex Vertex::left_child() const noexcept {
   if (vertex_) {
     if (vertex_signed_id_ < 0) {
       return vertex_->right_child_.negate();
@@ -134,7 +127,7 @@ inline Vertex Vertex::left_child() const {
   }
 }
 
-inline Vertex Vertex::right_child() const {
+inline Vertex Vertex::right_child() const noexcept {
   if (vertex_) {
     if (vertex_signed_id_ < 0) {
       return vertex_->left_child_.negate();
@@ -168,7 +161,7 @@ inline const LongInteger& Vertex::length() const {
   }
 }
 
-inline unsigned int Vertex::height() const {
+inline unsigned int Vertex::height() const noexcept {
   if (vertex_) {
     return vertex_->height_;
   } else if (vertex_signed_id_) {
@@ -197,12 +190,10 @@ class TerminalVertexTemplate : public Vertex {
   public:
     TerminalVertexTemplate() = delete;
 
-    explicit TerminalVertexTemplate(TerminalSymbol terminal_symbol)
+    explicit TerminalVertexTemplate(TerminalSymbol terminal_symbol) noexcept(noexcept(TerminalSymbol(terminal_symbol)))
       : Vertex(static_cast<typename Vertex::VertexSignedId>(terminal_symbol), nullptr)
       , terminal_symbol_(terminal_symbol)
-    {
-      assert(height() == 1 && length() == 1);
-    }
+    { }
 
     explicit TerminalVertexTemplate(const Vertex& vertex)
       : Vertex(vertex)
@@ -214,15 +205,13 @@ class TerminalVertexTemplate : public Vertex {
       } else {
         terminal_symbol_ = static_cast<TerminalSymbol>(vertex_signed_id_);
       }
-
-      assert((height() == 0 && length() == 0) || (height() == 1 && length() == 1));
     }
 
-    const TerminalSymbol& terminal_symbol() const {
+    const TerminalSymbol& terminal_symbol() const noexcept {
       return terminal_symbol_;
     }
 
-    operator TerminalSymbol() const {
+    operator TerminalSymbol() const noexcept {
       return terminal_symbol();
     }
   private:
@@ -260,13 +249,12 @@ class NonterminalVertex : public Vertex {
       }
     }
 
-    static void reset_vertex_id() {
+    static void reset_vertex_id() noexcept {
       last_vertex_id_ = 0;
     }
 
   private:
     static Vertex::VertexSignedId last_vertex_id_; //All vertices are enumerated
-    static const Vertex::VertexAllocator& get_allocator();
 };
 }//namespace slp
 }//namespace crag
@@ -279,7 +267,7 @@ private:
   constexpr static hash<TFirst> first_hash_ = hash<TFirst>();
   constexpr static hash<TSecond> second_hash_ = hash<TSecond>();
 public:
-  size_t operator()(const pair<TFirst, TSecond>& obj) const {
+  size_t operator()(const pair<TFirst, TSecond>& obj) const noexcept {
     size_t first_hash_value = first_hash_(obj.first);
     //Taken from boost/functional/hash
     return second_hash_(obj.second) + 0x9e3779b9 + (first_hash_value << 6) + (first_hash_value >> 2);
@@ -296,7 +284,7 @@ constexpr hash<TSecond> hash<pair<TFirst, TSecond>>::second_hash_;
 template<>
 struct hash<crag::slp::Vertex> {
   public:
-    size_t operator()(const crag::slp::Vertex& vertex) const {
+    size_t operator()(const crag::slp::Vertex& vertex) const noexcept {
       return vertex.vertex_hash();
     }
 };

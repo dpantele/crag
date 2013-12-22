@@ -104,7 +104,7 @@ EndomorphismSLP EndomorphismSLP::conjugate_with(const AutomorphismDescription<En
 }
 
 
-slp::Vertex EndomorphismSLP::map_vertex(const slp::Vertex& vertex, const std::unordered_map<slp::Vertex, slp::Vertex>& images) const {
+slp::Vertex EndomorphismSLP::map_vertex(const slp::Vertex& vertex, const std::unordered_map<slp::Vertex, slp::Vertex>& images) {
   auto item = images.find(vertex.negate());
   if (item != images.end()) {//already mapped inverse
     return item->second.negate();
@@ -113,12 +113,12 @@ slp::Vertex EndomorphismSLP::map_vertex(const slp::Vertex& vertex, const std::un
   if (!vertex)
     return vertex;//Mapping null vertex
 
-  if (vertex.height() == 1) {//the vertex is terminal so map it to our corresponding root
+  if (vertex.is_terminal()) {//the vertex is terminal so map it to our corresponding root
     TerminalSymbol symbol = TerminalVertex(vertex).terminal_symbol();
     bool is_positive = is_positive_terminal_symbol(symbol);
     TerminalSymbol positive_symbol = is_positive ? symbol : -symbol;
     slp::Vertex v = image(positive_symbol);
-    if (TerminalVertex(positive_symbol) == v)//if id map
+    if (v.is_terminal() && positive_symbol == TerminalVertex(v).terminal_symbol())//if id map
       return vertex;
     return is_positive ? v : v.negate();
   } else {//for a nonterminal we already processed its children because postorder inspector
@@ -210,12 +210,13 @@ EndomorphismSLP EndomorphismSLP::load_from(std::istream* in) {
   *in >> roots_num >> terminals_num >> non_terminals_num;
 
   std::unordered_map<long, slp::Vertex> vertices;
+  EndomorphismSLP e;
   for (int i = 0; i < terminals_num; ++i) {
     long index;
     TerminalSymbol image;
     *in >> index >> image;
     in->ignore();
-    vertices.insert(std::make_pair(index, TerminalVertex(image)));
+    vertices.insert(std::make_pair(index, e.vertex_storage_.make_terminal(image)));
   }
 
   auto get_vertex = [&vertices] (long index) {
@@ -236,7 +237,6 @@ EndomorphismSLP EndomorphismSLP::load_from(std::istream* in) {
     vertices.insert(std::make_pair(index, slp::NonterminalVertex(left, right)));
   }
 
-  EndomorphismSLP e;
   for (int i = 0; i < roots_num; ++i) {
     TerminalSymbol key;
     size_t index;

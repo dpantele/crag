@@ -12,6 +12,38 @@
 namespace crag {
 namespace slp {
 
+//definitions for slp_vertex.h
+
+const LongInteger& Vertex::length() const noexcept {
+  if (nonterminal_data_) {
+    assert(storage_.is_valid());
+    if (!nonterminal_data_->length_) { //Calculate on first access
+      //TODO: test if this is an enhancement
+      nonterminal_data_->length_ = left_child().length() + right_child().length();
+    }
+
+    return nonterminal_data_->length_;
+  } else if (terminal_data_) {
+    return LongOne();
+  } else {
+    return LongZero();
+  }
+}
+
+unsigned int Vertex::height() const noexcept {
+  if (nonterminal_data_) {
+    assert(storage_.is_valid());
+    if(nonterminal_data_->height_ == 0) {
+      nonterminal_data_->height_ = std::max(left_child().height(), right_child().height() + 1);
+    }
+    return nonterminal_data_->height_;
+  } else if (terminal_data_) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
 const LongInteger& Vertex::LongZero() { //We use it to return length of Null vertex
   static LongInteger zero;
   return zero;
@@ -22,15 +54,13 @@ const LongInteger& Vertex::LongOne() { //We use it to return length of Null vert
   return one;
 }
 
-const Vertex::VertexAllocator& NonterminalVertex::get_allocator() {
-  static Vertex::VertexAllocator allocator;
-  return allocator;
-}
-
-Vertex::VertexSignedId NonterminalVertex::last_vertex_id_;
-constexpr std::hash<Vertex::VertexSignedId> Vertex::vertex_id_hash_;
+constexpr std::hash<internal::NonterminalNode*> Vertex::nonterminal_ptr_hash;
+constexpr std::hash<TerminalSymbol> Vertex::terminal_symbol_hash;
 
 } //namespace slp
+
+
+//arithmetic_sequence.h
 
 ::std::ostream& operator<<(::std::ostream& out, const FiniteArithmeticSequence& sequence) {
   return out << sequence.first() << ":" << sequence.last() << ".." << sequence.step();

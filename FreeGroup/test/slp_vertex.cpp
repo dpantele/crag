@@ -130,3 +130,6 @@ TEST(HashPair, HashPair) {
 }
 }
 
+Vertex internal::VertexStorage::nonterminal_vertex(Vertex left, Vertex right)
+    {
+}

@@ -12,185 +12,194 @@
 #include <memory>
 #include <iostream>
 #include <cassert>
+#include <array>
+#include <vector>
 
 #include <gmpxx.h>
 typedef mpz_class LongInteger;
 
-#include "boost/pool/pool_alloc.hpp"
+#include <boost/pool/pool_alloc.hpp>
+#include <boost/iterator/iterator_facade.hpp>
 
-namespace crag {
-namespace slp {
+namespace crag { namespace slp {
 
 //! Type of the basic character
-typedef int64_t TerminalSymbol;
+/**
+ * Supposed to be fully compatible with int - all algorithms assumes this is int.
+ */
+typedef int TerminalSymbol;
+
+class Vertex;
 
 namespace internal {
-class BasicVertex;
-struct BasicVertexAllocatorTag{};
-typedef boost::fast_pool_allocator<BasicVertex, boost::default_user_allocator_malloc_free, boost::details::pool::null_mutex, 1, 0> BasicVertexPoolAllocator;
-}
+//! Struct to be stored in the SLP container.
+struct NonterminalNode {
+    NonterminalNode* left_child_ = nullptr; //nullptr if left is terminal
+    NonterminalNode* right_child_ = nullptr;
+
+    constexpr static TerminalSymbol kPositive  = TerminalSymbol{} + 1;
+    constexpr static TerminalSymbol kNegative  = -kPositive;
+
+    TerminalSymbol left_terminal_ = TerminalSymbol{}; //TerminalSymbol{} if null vertex, kPositive or kNegative (depends on the sign) if left is non-terminal
+    TerminalSymbol right_terminal_ = TerminalSymbol{};
+
+    mutable LongInteger length_ = LongInteger{}; //mutable because we want length to be lazy
+    mutable unsigned int height_ = 0; //the same reason
+};
+
+class VertexStorageInterface;
+
+#ifndef DNDEGUG
+//emulation of reference with existence-checking for debugging
+class VertexStorageDescriptor {
+  public:
+    constexpr inline VertexStorageDescriptor();
+    explicit inline VertexStorageDescriptor(VertexStorageInterface* storage);
+    inline bool is_valid() const noexcept  { return !weak_ptr_.expired(); }
+
+    inline VertexStorageInterface& operator*() const noexcept;
+    inline VertexStorageInterface* operator->() const noexcept;
+    inline bool operator==(const VertexStorageDescriptor& other) const noexcept;
+    explicit operator bool() const noexcept { return bare_ptr_; }
+
+    std::weak_ptr<VertexStorageInterface> weak_ptr_;
+    VertexStorageInterface* bare_ptr_;
+};
+#else
+typedef VertexStorageInterface* VertexStorageDescriptor;
+#endif //DNDEBUG
+
+
+} //namespace internal
 
 //! Basic interface for vertex. Also represents empty vertex, use Vertex() as empty vertex
 class Vertex {
   public:
-    //! Default constructor generating empty vertex.
+    //! Consturct empty vertex. Note that this should be very rarely used, only to represent invalid vertices.
     constexpr Vertex()
-      : vertex_signed_id_(0)
-      , vertex_(nullptr)
-    {}
+      : storage_()
+      , nonterminal_data_()
+      , terminal_data_()
+    { }
 
-    bool operator==(const Vertex& other) const {
+
+    //! Compare two vertices
+    /*
+     * Two vertices are equal only if they refer to the same NonterminalNode (or both has nullptr there if terminal) and have
+     * have the same terminal symbol stored (for nonterminal vertices this means the same sign)
+     *
+     * Note that comparing two vertices obtained from the different containers is undefined behaviour.
+     */
+    bool operator==(const Vertex& other) const noexcept {
+      assert(this->storage_ == other.storage_ || !*this || !other);
       return
-          vertex_signed_id_ == other.vertex_signed_id_ &&
-          //((vertex_ && other.vertex_) || (!vertex_ && !other.vertex_));
-          vertex_ == other.vertex_;
+          nonterminal_data_ == other.nonterminal_data_ &&
+          terminal_data_ == other.terminal_data_;
     }
 
-    bool operator!=(const Vertex& other) const {
+    bool operator!=(const Vertex& other) const noexcept {
       return !(*this == other);
     }
 
-    //! Return vertex produces the reversed word
-    Vertex negate() const {
-      return Vertex(-vertex_signed_id_, std::shared_ptr<internal::BasicVertex>(vertex_));
-    }
+    //! Return vertex representing the reversed word
+    inline Vertex negate() const noexcept;
 
-    inline Vertex left_child() const;
+    //! Get left child
+    inline Vertex left_child() const noexcept;
 
-    inline Vertex right_child() const;
+    //! Get right child
+    inline Vertex right_child() const noexcept;
 
-    const LongInteger& split_point() const;
+    //! Return the length of the left child
+    inline const LongInteger& split_point() const noexcept;
 
-    const LongInteger& length() const;
+    //! Length of the word represented by this vertex.
+    /**
+     * Length is calculated on the first call of this function. So it should be safe to change children before that.
+     */
+    const LongInteger& length() const noexcept;
 
-    unsigned int height() const;
+    //! Maximum length of the path from this vertex to the terminal + 1. 1 if terminal. 0 if null.
+    /**
+     * Height is calculated on the first call of this function. So it should be safe to change children before that.
+     */
+    unsigned int height() const noexcept;
 
-    size_t vertex_hash() const {
-      return vertex_id_hash_(vertex_signed_id_);
-    }
+    //! Use this function to test if the vertex is terminal
+    inline bool is_terminal() const noexcept;
 
-    explicit operator bool() const {
-      return vertex_signed_id_;
-    }
+    //! Function to be used by std:hash<Vertex>
+    inline size_t vertex_hash() const noexcept;
 
-    inline void debug_print(::std::ostream* out) const;
+    //! Some order on vertices to store them in std::map
+    inline bool operator<(const Vertex& other) const noexcept;
 
-    typedef int64_t VertexSignedId;
-    VertexSignedId vertex_id() const {
-      return vertex_signed_id_;
-    }
+    //! True if vertex is not-null
+    inline explicit operator bool() const noexcept;
+
+    //! Function to be use in gtest's print. But can be called without it.
+    void debug_print(::std::ostream* out) const;
+
+    internal::VertexStorageDescriptor storage() { return storage_; }
+    Vertex(internal::VertexStorageDescriptor storage, internal::NonterminalNode* nonterminal_data, TerminalSymbol terminal_data)
+          : storage_(storage)
+          , nonterminal_data_(nonterminal_data)
+          , terminal_data_(terminal_data)
+        { }
 
   protected:
-    typedef std::allocator<internal::BasicVertex> VertexAllocator;
-    //typedef internal::BasicVertexPoolAllocator VertexAllocator;
-    VertexSignedId vertex_signed_id_;
-    std::shared_ptr<internal::BasicVertex> vertex_;
-    static constexpr std::hash<VertexSignedId> vertex_id_hash_ = std::hash<VertexSignedId>();
+    friend class internal::VertexStorageInterface;
+    internal::VertexStorageDescriptor storage_{}; //to create new null vertices without explicitly indicating the storage
 
-    Vertex(VertexSignedId vertex_signed_id, std::shared_ptr<internal::BasicVertex>&& vertex)
-      : vertex_signed_id_(vertex_signed_id)
-      , vertex_(std::move(vertex))
-    {
-    }
+    internal::NonterminalNode* nonterminal_data_ = nullptr;
+    TerminalSymbol terminal_data_ = TerminalSymbol{};
+
+    static constexpr std::hash<internal::NonterminalNode*> nonterminal_ptr_hash = std::hash<internal::NonterminalNode*>();
+    static constexpr std::hash<TerminalSymbol> terminal_symbol_hash = std::hash<TerminalSymbol>();
 
     static const LongInteger& LongZero();
     static const LongInteger& LongOne();
+
 };
-
-inline void PrintTo(const Vertex& vertex, ::std::ostream* os) {
-  vertex.debug_print(os);
-}
-
 
 namespace internal {
-class BasicVertex {
+
+class VertexStorageInterface : public std::enable_shared_from_this<VertexStorageInterface> {
   public:
-    LongInteger length_;
-    unsigned int height_;
-    Vertex left_child_;
-    Vertex right_child_;
+    virtual ~VertexStorageInterface() {}
 
-    BasicVertex()
-      : length_(0)
-      , height_(0)
-    { }
-
-    BasicVertex(Vertex&& left_child, Vertex&& right_child)
-      : length_(left_child.length() + right_child.length())
-      , height_(std::max(left_child.height(), right_child.height()) + 1)
-      , left_child_(std::move(left_child))
-      , right_child_(std::move(right_child))
-    { }
+    virtual Vertex make_nonterminal(Vertex left, Vertex right) = 0;
+    virtual Vertex make_terminal(TerminalSymbol terminal) = 0;
+  protected:
+    //Access to the privates of vertices for storages
+    static NonterminalNode* nonterminal_data(Vertex vertex) { return vertex.nonterminal_data_; }
+    static TerminalSymbol terminal_data(Vertex vertex) { return vertex.terminal_data_; }
+    static VertexStorageDescriptor storage(Vertex vertex) { return vertex.storage_; }
 };
 
-}
+}  // namespace internal
 
-inline Vertex Vertex::left_child() const {
-  if (vertex_) {
-    if (vertex_signed_id_ < 0) {
-      return vertex_->right_child_.negate();
-    } else {
-      return vertex_->left_child_;
-    }
-  } else {
-    return Vertex();
-  }
-}
+//this is not a full implementations - it has no constructors. Use appropriate storage, like BucketVertexStorage
+class VertexStorage {
+  public:
+    VertexStorage() = delete;
 
-inline Vertex Vertex::right_child() const {
-  if (vertex_) {
-    if (vertex_signed_id_ < 0) {
-      return vertex_->left_child_.negate();
-    } else {
-      return vertex_->right_child_;
-    }
-  } else {
-    return Vertex();
-  }
-}
+    //Create non-terminal vertex in this container
+    Vertex make_nonterminal(Vertex left, Vertex right) { return storage_->make_nonterminal(std::move(left), std::move(right)); }
+    Vertex make_terminal(TerminalSymbol terminal) { return storage_->make_terminal(terminal); }
 
-inline const LongInteger& Vertex::split_point() const {
-  if (vertex_) {
-    if (vertex_signed_id_ < 0) {
-      return vertex_->right_child_.length();
-    } else {
-      return vertex_->left_child_.length();
-    }
-  } else {
-    return LongZero();
-  }
-}
+    VertexStorage(std::shared_ptr<internal::VertexStorageInterface> storage)
+      : storage_(std::move(storage))
+    { }
+  protected:
+    std::shared_ptr<internal::VertexStorageInterface> storage_ = nullptr;
+};
 
-inline const LongInteger& Vertex::length() const {
-  if (vertex_) {
-    return vertex_->length_;
-  } else if (vertex_signed_id_) {
-    return LongOne();
-  } else {
-    return LongZero();
-  }
-}
 
-inline unsigned int Vertex::height() const {
-  if (vertex_) {
-    return vertex_->height_;
-  } else if (vertex_signed_id_) {
-    return 1;
-  } else {
-    return 0;
-  }
-}
 
-inline void Vertex::debug_print(::std::ostream* out) const {
-  if (!vertex_signed_id_) {
-    (*out) << "Vertex()";
-  } else if (!vertex_) {
-    (*out) << "TerminalVertex(" << vertex_signed_id_ << ')';
-  } else {
-    (*out) << "NonterminalVertex(l=" << vertex_->length_
-           << ", h=" << vertex_->height_
-           << ", id=" << vertex_signed_id_ << ')';
-  }
+//! Method for gtest printing
+inline void PrintTo(const Vertex& vertex, ::std::ostream* os) {
+  vertex.debug_print(os);
 }
 
 //! Terminal vertex in a SLP. Produces word of length 1.
@@ -198,36 +207,23 @@ class TerminalVertex : public Vertex {
   public:
     TerminalVertex() = delete;
 
-    explicit TerminalVertex(TerminalSymbol terminal_symbol)
-      : Vertex(static_cast<typename Vertex::VertexSignedId>(terminal_symbol), nullptr)
-      , terminal_symbol_(terminal_symbol)
-    {
-      assert(height() == 1 && length() == 1);
-    }
+    explicit TerminalVertex(TerminalSymbol terminal_symbol, VertexStorage* storage)
+      : Vertex(storage->make_terminal(terminal_symbol))
+    { }
 
     explicit TerminalVertex(const Vertex& vertex)
       : Vertex(vertex)
-      , terminal_symbol_()
     {
-      if (vertex_) {
-        vertex_ = nullptr;
-        vertex_signed_id_ = 0;
-      } else {
-        terminal_symbol_ = static_cast<TerminalSymbol>(vertex_signed_id_);
-      }
-
       assert((height() == 0 && length() == 0) || (height() == 1 && length() == 1));
     }
 
     const TerminalSymbol& terminal_symbol() const {
-      return terminal_symbol_;
+      return terminal_data_;
     }
 
     operator TerminalSymbol() const {
       return terminal_symbol();
     }
-  private:
-    TerminalSymbol terminal_symbol_;
 };
 
 inline ::std::ostream& operator << (::std::ostream& stream, const TerminalVertex& vertex) {
@@ -240,38 +236,100 @@ class NonterminalVertex : public Vertex {
     NonterminalVertex() = delete;
 
     NonterminalVertex(Vertex left, Vertex right)
-      : Vertex(
-          ++last_vertex_id_,
-          std::make_shared<internal::BasicVertex>(
-            //get_allocator(),
-            ::std::move(left),
-            ::std::move(right)
-          ))
+      : Vertex(left.storage()->make_nonterminal(
+          left,
+          right
+        ))
     {
-      assert(left_child());
-      assert(right_child());
-      assert(left_child().length() > 0);
-      assert(right_child().length() > 0);
-      assert(height() > 1);
-      assert(length() > 1);
+    }
+};
 
-      if (last_vertex_id_ <= 0) {
-        throw std::overflow_error("NonterminalVertex::vertex_id is overflowed");
-      }
+
+namespace internal {
+
+class VertexBucket;
+
+struct NonterminalNodeInBucket : public NonterminalNode {
+    VertexBucket* bucket_ = nullptr;
+};
+
+//sizeof(VertexBucket) should be ~4Kb
+class VertexBucket {
+  public:
+    constexpr static size_t kBucketLength = 0x2000ull / sizeof(NonterminalNodeInBucket);
+
+    VertexBucket()
+    { }
+
+    NonterminalNodeInBucket* allocate() noexcept {
+      assert(allocated_size_ < kBucketLength);
+      data_[allocated_size_].bucket_ = this;
+      return data_ + allocated_size_++;
     }
 
-    static void reset_vertex_id() {
-      last_vertex_id_ = 0;
+    const NonterminalNodeInBucket* begin() const noexcept {
+      return data_;
+    }
+
+    NonterminalNodeInBucket* begin() noexcept {
+      return data_;
+    }
+
+    bool is_full() const noexcept {
+      return allocated_size_ == kBucketLength;
     }
 
   private:
-    static Vertex::VertexSignedId last_vertex_id_; //All vertices are enumerated
-    static const Vertex::VertexAllocator& get_allocator();
+    NonterminalNodeInBucket data_[kBucketLength] = {};
+    size_t allocated_size_ = 0;
 };
-}//namespace slp
-}//namespace crag
+
+//Should be shared-referenced
+class BucketVertexStorageImpl : public VertexStorageInterface {
+  public:
+    NonterminalNodeInBucket* allocate() {
+      if (vertex_buckets_.empty() || vertex_buckets_.back()->is_full()) {
+        vertex_buckets_.emplace_back(new VertexBucket{});
+      }
+      return vertex_buckets_.back()->allocate();
+    }
+
+    Vertex make_nonterminal(Vertex left, Vertex right) override {
+      assert(left && right);
+      assert(storage(left) == storage(right));
+      assert(storage(left) == this);
+
+      auto node = allocate();
+
+      node->left_child_ = nonterminal_data(left);
+      node->right_child_ = nonterminal_data(right);
+      node->left_terminal_ = terminal_data(left);
+      node->right_terminal_ = terminal_data(right);
+
+      return Vertex(VertexStorageDescriptor(this), node, NonterminalNode::kPositive);
+    }
+
+    virtual Vertex make_terminal(TerminalSymbol terminal) override {
+      return Vertex(VertexStorageDescriptor(this), nullptr, terminal);
+    }
+  private:
+    std::vector<std::unique_ptr<VertexBucket>> vertex_buckets_;
+
+};
+
+}  // namespace internal
+
+class BucketVertexStorage : public VertexStorage {
+  public:
+    BucketVertexStorage()
+      : VertexStorage(std::make_shared<internal::BucketVertexStorageImpl>())
+    { }
+};
+
+}}//namespace crag::slp
 
 namespace std {
+
 //! Definition of the hash for std::pair
 template<typename TFirst, typename TSecond>
 struct hash<pair<TFirst, TSecond>> {
@@ -291,7 +349,6 @@ constexpr hash<TFirst> hash<pair<TFirst, TSecond>>::first_hash_;
 template<typename TFirst, typename TSecond>
 constexpr hash<TSecond> hash<pair<TFirst, TSecond>>::second_hash_;
 
-
 //! Definition of the hash for SignedVertex
 template<>
 struct hash<crag::slp::Vertex> {
@@ -300,7 +357,9 @@ struct hash<crag::slp::Vertex> {
       return vertex.vertex_hash();
     }
 };
+
 } //namespace std
 
-
+//Definitions of inline methods
+#include "slp_vertex-inl.h"
 #endif /* CRAG_FREEGROUP_SLP_VERTEX_H_ */

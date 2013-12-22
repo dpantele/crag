@@ -29,7 +29,7 @@ template <class... Hashers> class TVertexHash {
      * Calculate hash of some terminal vertex using its singed id, usually
      * just conversion of value to Vertex::SignedVertexId. All hashers should implement such constructor.
      */
-    TVertexHash(Vertex::VertexSignedId terminal_id);
+    TVertexHash(TerminalSymbol terminal);
 
     //! Hash of empty vertex. Also should be implemented by every hasher.
     TVertexHash();
@@ -61,9 +61,9 @@ class TVertexHash<TFirstHasher, TOtherHashers...> : public TFirstHasher, public 
     typedef TVertexHash<TOtherHashers...> OtherHasher;
   public:
 
-    TVertexHash(Vertex::VertexSignedId terminal_id)
-      : FirstHasher(terminal_id)
-      , OtherHasher(terminal_id)
+    TVertexHash(TerminalSymbol terminal)
+      : FirstHasher(terminal)
+      , OtherHasher(terminal)
     { }
 
     TVertexHash()
@@ -128,7 +128,7 @@ class TVertexHash<> {
       return *this;
     }
 
-    TVertexHash(Vertex::VertexSignedId terminal) {}
+    TVertexHash(TerminalSymbol terminal) {}
     TVertexHash() {}
 
     bool operator==(const TVertexHash& other) const {
@@ -155,12 +155,12 @@ class PowerCountHash {
     int64_t terminal_power_[RANK] = {0};
   public:
     PowerCountHash() {}
-    PowerCountHash(Vertex::VertexSignedId terminal_id) {
-      assert(terminal_id < RANK && -terminal_id < RANK && terminal_id != 0);
-      if (terminal_id > 0) {
-        terminal_power_[terminal_id - 1] = 1;
-      } else if (terminal_id < 0){
-        terminal_power_[-terminal_id - 1] = -1;
+    PowerCountHash(TerminalSymbol terminal) {
+      assert(terminal < RANK && -terminal < RANK && terminal);
+      if (terminal > 0) {
+        terminal_power_[terminal - 1] = 1;
+      } else if (terminal < 0){
+        terminal_power_[-terminal - 1] = -1;
       }
     }
 
@@ -200,8 +200,8 @@ class SinglePowerHash {
     SinglePowerHash()
       : terminals_power_(0)
     {}
-    SinglePowerHash(Vertex::VertexSignedId terminal_id)
-      : terminals_power_(terminal_id > 0 ? 1 : (terminal_id < 0 ? -1 : 0))
+    SinglePowerHash(TerminalSymbol terminal)
+      : terminals_power_(terminal > 0 ? 1 : (terminal < 0 ? -1 : 0))
     {}
 
     SinglePowerHash(const SinglePowerHash& other) {
@@ -233,29 +233,29 @@ class PermutationHash {
     constexpr static size_t PERMUTATION_RANK = 16;
     TPermutation permutation_;
     constexpr static std::hash<TPermutation> permutation_hasher_ = std::hash<TPermutation>();
-    static TPermutation GetTerminalPermutation(Vertex::VertexSignedId terminal_id) {
+    static TPermutation GetTerminalPermutation(TerminalSymbol terminal) {
       static std::vector<TPermutation> permutations = {
         TPermutation(), //for null terminal
         TPermutation({11, 4, 5, 13, 15, 0, 12, 8, 3, 1, 6, 14, 9, 7, 2, 10}), //permutation of the maximal order in S16
         TPermutation({6, 14, 0, 4, 13, 7, 11, 12, 1, 10, 15, 9, 5, 8, 2, 3}), //combined with the previous, it can give the whole group
       };
 
-      size_t terminal = terminal_id < 0 ? -terminal_id : terminal_id;
+      TerminalSymbol abs_terminal = terminal < 0 ? -terminal : terminal;
 
-      while (permutations.size() <= terminal) {
+      while (permutations.size() <= abs_terminal) {
         permutations.push_back(TPermutation::random(PERMUTATION_RANK));
       }
 
-      if (terminal_id >= 0) {
-        return permutations[terminal_id];
+      if (terminal >= 0) {
+        return permutations[terminal];
       } else {
-        return permutations[-terminal_id].inverse();
+        return permutations[-terminal].inverse();
       }
     }
 
   public:
-    PermutationHash(Vertex::VertexSignedId terminal_id)
-      : permutation_(GetTerminalPermutation(terminal_id))
+    PermutationHash(TerminalSymbol terminal)
+      : permutation_(GetTerminalPermutation(terminal))
     { }
 
     PermutationHash()
@@ -297,8 +297,8 @@ class ImageLengthHash {
     ImageLengthHash()
       : length_(0)
     {}
-    ImageLengthHash(Vertex::VertexSignedId terminal_id)
-      : length_(terminal_id != 0 ? 1 : 0)
+    ImageLengthHash(TerminalSymbol terminal)
+      : length_(terminal ? 1 : 0)
     {}
 
     ImageLengthHash(const ImageLengthHash& other)
@@ -352,7 +352,7 @@ class TVertexHashAlgorithms {
         return cache->insert(
             std::make_pair(
                 root,
-                VertexHash(root.vertex_id())
+                VertexHash(static_cast<const TerminalVertex&>(root).terminal_symbol())
             )
         ).first->second;
       } else {

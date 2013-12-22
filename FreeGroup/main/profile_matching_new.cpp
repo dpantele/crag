@@ -24,10 +24,11 @@ using crag::slp::TerminalVertex;
 using crag::slp::TerminalSymbol;
 using crag::slp::NonterminalVertex;
 using crag::slp::MatchingTable;
+using crag::slp::VertexStorage;
 
-Vertex get_random_slp_on_2_letters(unsigned int WORD_SIZE) {
-  TerminalVertex a(TerminalSymbol{} + 1);
-  TerminalVertex b(TerminalSymbol{} + 2);
+Vertex get_random_slp_on_2_letters(unsigned int WORD_SIZE, VertexStorage* vertex_storage) {
+  TerminalVertex a(TerminalSymbol{} + 1, vertex_storage);
+  TerminalVertex b(TerminalSymbol{} + 2, vertex_storage);
 
   int random_word = rand() % (1 << WORD_SIZE);
   std::vector<unsigned int> random_word_split;
@@ -61,8 +62,10 @@ int main() {
 
   auto begin = std::chrono::high_resolution_clock::now();
 
+  crag::slp::BucketVertexStorage vertex_storage;
+
   while (--REPEAT >= 0) {
-    Vertex text = get_random_slp_on_2_letters(WORD_SIZE);
+    Vertex text = get_random_slp_on_2_letters(WORD_SIZE, &vertex_storage);
 
     int random_pattern_number = rand() % (2 * WORD_SIZE - 1);
     PreorderInspector pattern_getter(text);

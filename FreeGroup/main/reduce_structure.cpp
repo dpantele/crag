@@ -76,10 +76,10 @@ Vertex logging_get_sub_slp(const Vertex& root, const LongInteger& begin, const L
     return root;
   } else {
     if (root.split_point() >= end) {
-      std::cout << root.right_child().vertex_id() << " (r" << (root.right_child().height() > 1 ? "" : "t") << ") * ";
+      //std::cout << root.right_child().vertex_id() << " (r" << (root.right_child().height() > 1 ? "" : "t") << ") * ";
       return logging_get_sub_slp(root.left_child(), begin, end);
     } else if (root.split_point() <= begin) {
-      std::cout << root.left_child().vertex_id() << " (l" << (root.left_child().height() > 1 ? "" : "t") << ") * ";
+      //std::cout << root.left_child().vertex_id() << " (l" << (root.left_child().height() > 1 ? "" : "t") << ") * ";
       return logging_get_sub_slp(root.right_child(), begin - root.split_point(), end - root.split_point());
     } else {
       return NonterminalVertex(
@@ -181,7 +181,7 @@ Vertex reduce(const Vertex& vertex,
       (*last_reductions)[cancellation_length] = this_reduction_id;
     }
 
-    std::cout << vertex.vertex_id() << ',' << vertex.length() << ',' << vertex.height() << ',' << vertex.left_child().vertex_id() << ',' << vertex.right_child().vertex_id() << ',' << 2*cancellation_length << ',' << left_siblings_length << ',' << success << ',';
+    //std::cout << vertex.vertex_id() << ',' << vertex.length() << ',' << vertex.height() << ',' << vertex.left_child().vertex_id() << ',' << vertex.right_child().vertex_id() << ',' << 2*cancellation_length << ',' << left_siblings_length << ',' << success << ',';
     if (cancellation_length == 0) {
       if (left == vertex.left_child() && right == vertex.right_child()) {
         assert(
@@ -226,14 +226,14 @@ Vertex reduce(const Vertex& vertex,
         assert(reduced_right.height() != 1 || reduced_right.length() == 1);
         auto end = std::chrono::system_clock::now();
         std::cout << ',' << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
-        std::cout << ',' << reduced_right.vertex_id() << ", r\n";
+        //std::cout << ',' << reduced_right.vertex_id() << ", r\n";
         return reduced_right;
       } else if (!reduced_right) {
         assert(reduced_left.height() >= 1);
         assert(reduced_left.height() != 1 || reduced_left.length() == 1);
         auto end = std::chrono::system_clock::now();
         std::cout << ',' << std::chrono::duration_cast<std::chrono::microseconds>(end - begin).count();
-        std::cout << ',' << reduced_left.vertex_id()<< ", l\n";
+        //std::cout << ',' << reduced_left.vertex_id()<< ", l\n";
         return reduced_left;
       } else {
         auto result = NonterminalVertex(reduced_left, reduced_right);
@@ -242,7 +242,7 @@ Vertex reduce(const Vertex& vertex,
 //        auto temp_result_joined = NonterminalVertex(result, result);
 //        auto conjugate_length = VertexHashAlgorithms::get_cancellation_length(temp_result_joined, hash_cache);
 //        std::cout << ',' << result.vertex_id() << ',' << conjugate_length << ", n\n";
-        std::cout << ',' << result.vertex_id() << ", n\n";
+        //std::cout << ',' << result.vertex_id() << ", n\n";
         assert(result.length() > 1);
         assert(result.height() > 1);
         return result;

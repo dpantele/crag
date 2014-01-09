@@ -10,6 +10,7 @@
 #include <chrono>
 
 #include "AAGCrypto.h"
+#include "gmp.h"
 
 typedef std::chrono::high_resolution_clock our_clock;
 using namespace crag;
@@ -28,6 +29,15 @@ namespace crag{
 
 namespace aag_crypto {
 
+uint64_t max_length(const AutDescription& aut) {
+  auto lengths = images_length(aut.aut());
+  uint64_t max = 0;
+  for (const auto& l : lengths) {
+    max = std::max(max, mpz_size(l.second.get_mpz_t()));
+  }
+  return max;
+}
+
 class AAGExperiment {
 
   public:
@@ -35,7 +45,7 @@ class AAGExperiment {
     }
 
     AAGExperiment(std::ostream* p_out) : out_(*p_out) {
-      out_ << "key_length,time,height,vertices_num," << std::endl;
+      out_ << "key_length,time,height,vertices_num" << std::endl;
     }
 
     void evaluate_scheme_time(const SchemeParameters& params, CalculationType calc_type, unsigned int samples_num) {
@@ -54,7 +64,9 @@ class AAGExperiment {
         print(params.KEY_LENGTH);
         print(time_in_ms.count());
         print(s.height);
-        print(s.vertices_num, false);
+        print(s.vertices_num);
+
+        uint64_t max = 0;
 
         if (logging) {
           std::cout << time_in_ms.count() << "ms" << std::endl;
@@ -83,6 +95,16 @@ class AAGExperiment {
           std::cout << slp_vertices_num(b_pub[i]()) << ", ";
         }
         std::cout << ")" << std::endl;
+
+        uint64_t max = 0;
+        for (size_t i = 0; i < a_pub.size(); ++i) {
+          max = std::max(max, max_length(a_pub[i]));
+        }
+        for (size_t i = 0; i < b_pub.size(); ++i) {
+          max = std::max(max, max_length(b_pub[i]));
+        }
+
+        std::cout << "Max limb-length of pub is " << max << std::endl;
       }
 
       auto a_priv = k_gen.generate_private_key(a_pub);
@@ -91,6 +113,11 @@ class AAGExperiment {
       if (logging) {
         std::cout << "private key sizes A = " << slp_vertices_num(a_priv()()) <<
                      ", B = " << slp_vertices_num(b_priv()()) << std::endl;
+        uint64_t max = 0;
+        max = std::max(max, max_length(a_priv()));
+        max = std::max(max, max_length(b_priv()));
+
+        std::cout << "Max limb-length of priv is " << max << std::endl;
       }
 
       TransmittedInfo b_ti(a_pub, b_priv);
@@ -107,6 +134,8 @@ class AAGExperiment {
 
       if (logging) {
         std::cout << "shared key size " << slp_vertices_num(key) << std::endl;
+
+        std::cout << "Max limb-length of shared is " << max_length(key) << std::endl;
       }
 
       Stats s;

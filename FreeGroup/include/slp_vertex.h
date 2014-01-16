@@ -253,12 +253,13 @@ struct NonterminalNodeInBucket : public NonterminalNode {
     VertexBucket* bucket_ = nullptr;
 };
 
-//sizeof(VertexBucket) should be ~4Kb
-class VertexBucket {
+//sizeof(VertexBucket<NonterminalNodeInBucket>) should be ~4Kb
+template <typename T>
+class Bucket {
   public:
     constexpr static size_t kBucketLength = 0x2000ull / sizeof(NonterminalNodeInBucket);
 
-    VertexBucket()
+    Bucket()
     { }
 
     NonterminalNodeInBucket* allocate() noexcept {
@@ -279,7 +280,7 @@ class VertexBucket {
       return allocated_size_ == kBucketLength;
     }
 
-  private:
+  protected:
     NonterminalNodeInBucket data_[kBucketLength] = {};
     size_t allocated_size_ = 0;
 };

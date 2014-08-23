@@ -31,6 +31,7 @@ typedef mpz_class LetterPower;
 typedef int64_t TerminalId;
 
 class Rule;
+struct RightLetter;
 
 class RuleLetter {
   public:
@@ -159,6 +160,8 @@ class RuleLetter {
 
     Terminal terminal_;
     Rule* nonterminal_rule_ = nullptr;
+  public:
+    RightLetter* pairs_index_postition_ = nullptr;
 
 };
 
@@ -375,6 +378,42 @@ inline bool RuleLetter::is_empty_nonterminal() const {
 inline void Rule::register_inclusion(Rule* rule, Rule::iterator letter) {
   nonterminal_index_.push_back(LetterPosition(rule, letter));
 }
+
+struct LeftLetter;
+
+struct RightLetter {
+  RightLetter(LeftLetter* left_letter, TerminalId right_id)
+    : right_id_(right_id)
+    , left_letter_(left_letter)
+  { }
+
+  TerminalId right_id_;
+  LeftLetter* left_letter_;
+  std::list<LetterPosition> occurencies_;
+};
+
+struct LeftLetter {
+  LeftLetter(TerminalId left_id)
+    : left_id_(left_id)
+  { }
+
+  RightLetter& operator[](TerminalId right_id) {
+    auto pos = right_letters_.emplace(right_id, RightLetter(right_id));
+    return pos.first->second;
+  }
+
+  TerminalId left_id_;
+  std::map<TerminalId, RightLetter> right_letters_;
+};
+
+struct Pairs {
+  std::map<TerminalId, LeftLetter> left_letters_;
+
+  LeftLetter& operator[](TerminalId left_id) {
+    auto pos = left_letters_.emplace(left_id, LeftLetter(left_id));
+    return pos.first->second;
+  }
+};
 
 struct JezRules {
     JezRules(const Vertex& slp);

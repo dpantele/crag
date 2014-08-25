@@ -1,7 +1,9 @@
 #include <array>
 #include <cassert>
+#include <set>
 #include <tuple>
 #include <vector>
+
 
 
 
@@ -117,6 +119,9 @@ public:
 
   //! For every vertex s and every cyclic permutation r' of the word r use pushCycle(r’,s). 
   void CompleteWith(Word r);
+
+  //! Find all word of length up to k which can can be read from v1 to v2
+  std::set<Word> Harvest(size_t k, Vertex v1, Vertex v2) const;
 
   //! Returns true if vertices are equal
   bool Equal(Vertex v1, Vertex v2);

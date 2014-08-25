@@ -22,6 +22,15 @@ inline size_t GetEdgesIndex(Label l) {
   }
 }
 
+inline Label GetLabel(size_t edge_index) {
+  assert(edge_index < FoldedGraph2::kAlphabetSize * 2);
+  if (edge_index % 2 == 0) {
+    return static_cast<int>(edge_index) / 2 + 1;
+  } else {
+    return (static_cast<int>(edge_index) + 1) / -2;
+  }
+}
+
 Vertex VertexEdges::endpoint(Label l) const {
   return edges_[GetEdgesIndex(l)];
 }
@@ -314,6 +323,38 @@ void FoldedGraph2::CompleteWith(Word r) {
       PushCycle(r, vertex);
     }
   }
+}
+
+std::set<Word> FoldedGraph2::Harvest(size_t k, Vertex v1, Vertex v2) const {
+  if (k == 0) {
+    return {};
+  }
+
+  std::set<Word> result;
+
+  for(size_t i = 0; i < kAlphabetSize * 2; ++i) {
+    auto label = GetLabel(i);
+    auto endpoint = vertex(v2).endpoint(label);
+
+    if (endpoint == kNullVertex) {
+      continue;
+    }
+
+    if (endpoint == v1) {
+      result.emplace(Word({-label}));
+    } 
+    
+    auto shorter_words = Harvest(k - 1, v1, endpoint);
+    for (const auto& word : shorter_words) {
+      if (word.back() != label) { //don't add words with cancellations
+        Word new_word = word;
+        new_word.push_back(-label);
+        result.emplace(std::move(new_word));
+      }
+    }
+  }
+
+  return result;
 }
 
 

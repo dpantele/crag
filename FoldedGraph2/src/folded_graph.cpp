@@ -325,8 +325,44 @@ void FoldedGraph2::CompleteWith(Word r) {
   }
 }
 
+std::vector<unsigned int> FoldedGraph2::ComputeDistances(Vertex v) const {
+  std::vector<unsigned int> distance(edges_.size(), std::numeric_limits<unsigned int>::max());
+  distance[v] = 0;
+  
+  std::deque<Vertex> q = {v};
+
+  while (!q.empty()) {
+    auto next = q.front();
+    q.pop_front();
+
+    for(auto neighbor : vertex(next).edges_) {
+      if (neighbor == kNullVertex) {
+        continue;
+      }
+
+      neighbor = GetLastCombinedWith(neighbor);
+
+      if (distance[next] + 1 < distance[neighbor]) {
+        distance[neighbor] = distance[next] + 1;
+        q.push_back(neighbor);
+      }
+    }
+  }
+
+  return distance;
+}
+
 std::set<Word> FoldedGraph2::Harvest(size_t k, Vertex v1, Vertex v2) const {
+  auto v1_distances = this->ComputeDistances(v1);
+  return Harvest(k, v1, v2, v1_distances);
+}
+
+std::set<Word> FoldedGraph2::Harvest(size_t k, Vertex v1, Vertex v2, const std::vector<unsigned int>& v1_distances) const {
   if (k == 0) {
+    return {};
+  }
+
+  if (k < v1_distances[v2]) {
     return {};
   }
 
@@ -344,7 +380,7 @@ std::set<Word> FoldedGraph2::Harvest(size_t k, Vertex v1, Vertex v2) const {
       result.emplace(Word({-label}));
     } 
     
-    auto shorter_words = Harvest(k - 1, v1, endpoint);
+    auto shorter_words = Harvest(k - 1, v1, endpoint, v1_distances);
     for (const auto& word : shorter_words) {
       if (word.back() != label) { //don't add words with cancellations
         Word new_word = word;

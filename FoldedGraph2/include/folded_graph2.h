@@ -148,6 +148,11 @@ public:
   //! Add new edge labeled by l from @ref from to @ref to (or a new vertex, if null)
   Vertex AddEdge(Label l, Vertex from, Vertex to = kNullVertex);
 
+  //! Compute distances from the vertices to @ref v
+  std::vector<unsigned int> ComputeDistances(Vertex v) const;
+
+  std::set<Word> Harvest(size_t k, Vertex v1, Vertex v2, const std::vector<unsigned int>& v1_distances) const;
+
 };
 
 } //namespace crag

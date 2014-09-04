@@ -4,10 +4,9 @@
 #include <tuple>
 #include <vector>
 
-
-
-
 namespace crag {
+
+
 
 //! Oriented labeled graph representing subgroup of FG[a, b]
 class FoldedGraph2 {
@@ -19,7 +18,16 @@ public:
   typedef unsigned int Vertex;
 
   //! Type representing symbols and hence labels
-  typedef int Label;
+  /**
+   * We use the following presentation: \f$1 = a, -1 = a^{-1}, 2 = b, 3 = b^{-1}, \ldots\f$
+   */
+  typedef unsigned int Label;
+
+  //! Return the label for the inverse of the symbol
+  inline static Label Inverse(Label l) {
+    return l ^ 1;
+  }
+
 
   //! Get the ID of the root vertex. 
   static const Vertex root() {
@@ -117,11 +125,11 @@ public:
   */
   bool PushCycle(const Word& w, Vertex s = 1);
 
-  //! For every vertex s and every cyclic permutation r' of the word r use pushCycle(r’,s). 
+  //! For every vertex s and every cyclic permutation r' of the word r use pushCycle(rï¿½,s). 
   void CompleteWith(Word r);
 
   //! Find all word of length up to k which can can be read from v1 to v2
-  std::set<Word> Harvest(size_t k, Vertex v1, Vertex v2) const;
+  std::vector<Word> Harvest(size_t k, Vertex v1, Vertex v2) const;
 
   //! Returns true if vertices are equal
   bool Equal(Vertex v1, Vertex v2);
@@ -151,7 +159,7 @@ public:
   //! Compute distances from the vertices to @ref v
   std::vector<unsigned int> ComputeDistances(Vertex v) const;
 
-  std::set<Word> Harvest(size_t k, Vertex v1, Vertex v2, const std::vector<unsigned int>& v1_distances) const;
+  std::vector<Word> Harvest(size_t k, Vertex v1, Vertex v2, const std::vector<unsigned int>& v1_distances) const;
 
 };
 

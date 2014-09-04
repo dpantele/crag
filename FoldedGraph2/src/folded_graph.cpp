@@ -1,5 +1,7 @@
+#include <algorithm>
 #include <deque>
 #include <limits>
+#include <type_traits>
 
 #include "folded_graph2.h"
 
@@ -10,33 +12,12 @@ using VertexEdges = FoldedGraph2::VertexEdges;
 using Label = FoldedGraph2::Label;
 using Word = FoldedGraph2::Word;
 
-//! Transform label to the edges array index
-inline size_t GetEdgesIndex(Label l) {
-  assert(abs(l) > 0 && abs(l) <= FoldedGraph2::kAlphabetSize);
-  if (l < 0) {
-    // -1 -> 1, -2 -> 3, -3 -> 5, -4 -> 7
-    return l * (-2) - 1;
-  } else {
-    // 1 -> 0, 2 -> 2, 3 -> 4, 4 -> 6 
-    return ((l - 1) * 2);
-  }
-}
-
-inline Label GetLabel(size_t edge_index) {
-  assert(edge_index < FoldedGraph2::kAlphabetSize * 2);
-  if (edge_index % 2 == 0) {
-    return static_cast<int>(edge_index) / 2 + 1;
-  } else {
-    return (static_cast<int>(edge_index) + 1) / -2;
-  }
-}
-
 Vertex VertexEdges::endpoint(Label l) const {
-  return edges_[GetEdgesIndex(l)];
+  return edges_[l];
 }
 
 Vertex& VertexEdges::endpoint(Label l) {
-  return edges_[GetEdgesIndex(l)];
+  return edges_[l];
 }
 
 std::tuple<Vertex, Word::size_type> FoldedGraph2::ReadWord(const Word& w, size_t length_limit, Vertex s) const {
@@ -86,7 +67,7 @@ std::tuple<Vertex, Word::size_type> FoldedGraph2::ReadInverse(const Word& w, siz
   const auto end = w.rbegin() + length_limit;
 
   for (auto letter = w.rbegin(); letter != end; ++letter) {
-    auto next = vertex(s).endpoint(-*letter);
+    auto next = vertex(s).endpoint(FoldedGraph2::Inverse(*letter));
     if (next) {
       s = next;
     } else {
@@ -146,11 +127,19 @@ Vertex FoldedGraph2::AddEdge(Label l, Vertex from, Vertex to) {
     edges_.emplace_back();
   }
 
-  assert(vertex(from).endpoint(l) == kNullVertex || Equal(vertex(from).endpoint(l), GetLastCombinedWith(to)));
+  assert(
+      vertex(from).endpoint(l) == kNullVertex ||
+      Equal(vertex(from).endpoint(l), GetLastCombinedWith(to))
+  );
+
   edges_[GetLastCombinedWith(from)].endpoint(l) = GetLastCombinedWith(to);
 
-  assert(vertex(to).endpoint(-l) == kNullVertex || Equal(vertex(to).endpoint(-l), GetLastCombinedWith(from)));
-  edges_[GetLastCombinedWith(to)].endpoint(-l) = GetLastCombinedWith(from);
+  assert(
+      vertex(to).endpoint(Inverse(l)) == kNullVertex ||
+      Equal(vertex(to).endpoint(Inverse(l)), GetLastCombinedWith(from))
+  );
+
+  edges_[GetLastCombinedWith(to)].endpoint(Inverse(l)) = GetLastCombinedWith(from);
 
   return to;
 }
@@ -250,7 +239,7 @@ bool FoldedGraph2::PushCycle(const Word& w, Vertex s) {
     if (after_prefix_letter + 1 == begin_suffix_letter) {
       //if we added 1, -1, 1, we probably now have to join (1, -1) and (1)
       auto current_endpoint = vertex(prefix_end).endpoint(*after_prefix_letter);
-      auto other_side = vertex(suffix_begin).endpoint(-*after_prefix_letter);
+      auto other_side = vertex(suffix_begin).endpoint(Inverse(*after_prefix_letter));
       if (current_endpoint == suffix_begin) {
         assert(other_side == prefix_end);
         return true;
@@ -314,8 +303,9 @@ Word CyclicShift(Word r) {
 }
 
 void FoldedGraph2::CompleteWith(Word r) {
+  auto initial_vertex_count = edges_.size();
   for (size_t shift = 0; shift < r.size(); ++shift, r = CyclicShift(std::move(r))) {
-    for (auto vertex = root(); vertex <= edges_.size(); ++vertex) {
+    for (auto vertex = root(); vertex < initial_vertex_count; ++vertex) {
       if (edges_[vertex].combined_with_) {
         continue;
       }
@@ -352,12 +342,17 @@ std::vector<unsigned int> FoldedGraph2::ComputeDistances(Vertex v) const {
   return distance;
 }
 
-std::set<Word> FoldedGraph2::Harvest(size_t k, Vertex v1, Vertex v2) const {
+std::vector<Word> FoldedGraph2::Harvest(size_t k, Vertex v1, Vertex v2) const {
   auto v1_distances = this->ComputeDistances(v1);
-  return Harvest(k, v1, v2, v1_distances);
+  auto result = Harvest(k, v1, v2, v1_distances);
+  std::sort(result.begin(), result.end());
+  auto last = std::unique(std::make_move_iterator(result.begin()), std::make_move_iterator(result.end()));
+  result.erase(last.base(), result.end());
+
+  return result;
 }
 
-std::set<Word> FoldedGraph2::Harvest(size_t k, Vertex v1, Vertex v2, const std::vector<unsigned int>& v1_distances) const {
+std::vector<Word> FoldedGraph2::Harvest(size_t k, Vertex v1, Vertex v2, const std::vector<unsigned int>& v1_distances) const {
   if (k == 0) {
     return {};
   }
@@ -366,10 +361,9 @@ std::set<Word> FoldedGraph2::Harvest(size_t k, Vertex v1, Vertex v2, const std::
     return {};
   }
 
-  std::set<Word> result;
+  std::vector<Word> result;
 
-  for(size_t i = 0; i < kAlphabetSize * 2; ++i) {
-    auto label = GetLabel(i);
+  for(size_t label = 0; label < kAlphabetSize * 2; ++label) {
     auto endpoint = vertex(v2).endpoint(label);
 
     if (endpoint == kNullVertex) {
@@ -377,23 +371,25 @@ std::set<Word> FoldedGraph2::Harvest(size_t k, Vertex v1, Vertex v2, const std::
     }
 
     if (endpoint == v1) {
-      result.emplace(Word({-label}));
+      result.emplace_back(Word({Inverse(label)}));
     } 
     
     auto shorter_words = Harvest(k - 1, v1, endpoint, v1_distances);
     for (const auto& word : shorter_words) {
       if (word.back() != label) { //don't add words with cancellations
         Word new_word = word;
-        new_word.push_back(-label);
-        result.emplace(std::move(new_word));
+        new_word.push_back(Inverse(label));
+        result.emplace_back(std::move(new_word));
       }
     }
   }
 
+  if (result.size() == 1) {
+    return result;
+  }
+
+  //now sort and remove equal
   return result;
 }
-
-
-
 
 } //namespace crag

@@ -4,8 +4,10 @@ cmake_policy(VERSION 2.8.12)
 
 include("../cmake/common.cmake")
 
-crag_library(FoldedGraph2
-  folded_graph
+crag_library(AccHarvest
+  acc
 )
 
-crag_test(folded_graph FoldedGraph2)
+target_link_libraries(AccHarvest PUBLIC FoldedGraph2)
+crag_test(acc FoldedGraph2 AccHarvest)
+crag_main(main AccHarvest)

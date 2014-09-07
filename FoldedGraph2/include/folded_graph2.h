@@ -4,9 +4,9 @@
 #include <tuple>
 #include <vector>
 
+#include "compressed_word.h"
+
 namespace crag {
-
-
 
 //! Oriented labeled graph representing subgroup of FG[a, b]
 class FoldedGraph2 {
@@ -54,7 +54,7 @@ public:
   //! Return the info for the vertex @ref i
   const VertexEdges& vertex(Vertex v) const;
 
-  typedef std::vector<Label> Word;
+  typedef CWord Word;
 
   ///@{
   //! Traces the word @ref w starting from the root.
@@ -62,7 +62,7 @@ public:
   * @param w The word to be traced
   * @return A tuple, the first element is the last vertex on the way, the second element is the length of the word traced
   */
-  std::tuple<Vertex, Word::size_type> ReadWord(const Word& w) const;
+  std::tuple<Vertex, Word::size_type> ReadWord(Word w) const;
 
 
   //! Traces the word @ref w starting from the vertex @ref s.
@@ -71,7 +71,7 @@ public:
   * @param s The vertex to start from. The root by default
   * @return A tuple, the first element is the last vertex on the way, the second element is the length of the word traced
   */
-  std::tuple<Vertex, Word::size_type> ReadWord(const Word& w, Vertex s) const;
+  std::tuple<Vertex, Word::size_type> ReadWord(Word w, Vertex s) const;
 
   //! Traces the word @ref w (but not longer than @ref length_limit) starting from the vertex @ref s.
   /**
@@ -80,14 +80,14 @@ public:
   * @param s The vertex to start from. The root by default
   * @return A tuple, the first element is the last vertex on the way, the second element is the length of the word traced
   */
-  std::tuple<Vertex, Word::size_type> ReadWord(const Word& w, size_t length_limit, Vertex s) const;
+  std::tuple<Vertex, Word::size_type> ReadWord(Word w, Word::size_type length_limit, Vertex s) const;
 
   //! Traces the inverse of the word @ref w starting from the root. 
   /**
   * @param w The word to be traced
   * @return A tuple, the first element is the last vertex on the way, the second element is the length of the word traced
   */
-  std::tuple<Vertex, Word::size_type> ReadInverse(const Word& w) const;
+  std::tuple<Vertex, Word::size_type> ReadInverse(Word w) const;
 
   //! Traces the inverse of the word @ref w starting from the vertex @ref s.
   /**
@@ -95,7 +95,7 @@ public:
   * @param s The vertex to start from.
   * @return A tuple, the first element is the last vertex on the way, the second element is the length of the word traced
   */
-  std::tuple<Vertex, Word::size_type> ReadInverse(const Word& w, Vertex s) const;
+  std::tuple<Vertex, Word::size_type> ReadInverse(Word w, Vertex s) const;
 
   //! Traces the inverse of the word @ref w  (but not longer than @ref length_limit) starting from the vertex @ref s.
   /**
@@ -104,7 +104,7 @@ public:
   * @param s The vertex to start from. The root by default
   * @return A tuple, the first element is the last vertex on the way, the second element is the length of the word traced
   */
-  std::tuple<Vertex, Word::size_type> ReadInverse(const Word& w, size_t length_limit, Vertex s) const;
+  std::tuple<Vertex, Word::size_type> ReadInverse(Word w, Word::size_type length_limit, Vertex s) const;
 
   ///@}
 
@@ -115,7 +115,7 @@ public:
   * @param s The vertex to start from. The root by default
   * @return The endpoint
   */
-  Vertex PushWord(const Word& w, Vertex s = kRootVertex);
+  Vertex PushWord(Word w, Vertex s = kRootVertex);
 
   //! Traces the cycle @ref w starting from the vertex @ref s, creating new vertices if required. 
   /**
@@ -123,9 +123,9 @@ public:
   * @param s The vertex to start from. The root by default
   * @return false if cycle already existed
   */
-  bool PushCycle(const Word& w, Vertex s = 1);
+  bool PushCycle(Word w, Vertex s = 1);
 
-  //! For every vertex s and every cyclic permutation r' of the word r use pushCycle(r�,s). 
+  //! For every vertex s and every cyclic permutation r' of the word r use pushCycle(r',s). 
   void CompleteWith(Word r);
 
   //! Find all word of length up to k which can can be read from v1 to v2

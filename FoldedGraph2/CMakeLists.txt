@@ -9,3 +9,4 @@ crag_library(FoldedGraph2
 )
 
 crag_test(folded_graph FoldedGraph2)
+crag_test(cword FoldedGraph2)

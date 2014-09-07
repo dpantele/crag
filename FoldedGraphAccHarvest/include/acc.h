@@ -42,9 +42,9 @@ void LeftShift(InputIterator first, InputIterator last) {
 /**
  * Shift(2, {1, 2, 3, 4, 5}) is {3, 4, 5, 1, 2}
  */
-void Shift(size_t shift, Word* w);
+//void Shift(size_t shift, Word* w);
 
-Word CyclicReduce(const Word& w);
+Word CyclicReduce(Word w);
 
 //! Returns the minimal cyclic permutation of w
 void PermuteToMin(Word* w);
@@ -68,5 +68,5 @@ void Invert(InputIterator first, InputIterator last) {
 std::vector<Word> ReduceAndNormalize(std::vector<Word> words);
 
 //! w -> s^(-1) w s
-Word Conjugate(Word w, const Word& s);
+Word Conjugate(Word w, Word s);
 } //namespae crag

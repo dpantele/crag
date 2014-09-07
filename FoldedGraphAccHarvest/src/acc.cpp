@@ -2,33 +2,32 @@
 
 namespace crag {
 
-void Shift(size_t shift, Word* w) {
-  shift %= w->size();
-  Flip(w->begin(), w->begin() + shift);
-  Flip(w->begin() + shift, w->end());
-  Flip(w->begin(), w->end());
-}
-
-Word CyclicReduce(const Word& w) {
-  auto first = w.begin();
-  auto last = w.end();
-  while (first != last) {
-    --last;
-    if (first == last || FoldedGraph2::Inverse(*last) != *first) {
-      return Word(first, ++last);
+//void Shift(size_t shift, Word* w) {
+//  shift %= w->size();
+//  Flip(w->begin(), w->begin() + shift);
+//  Flip(w->begin() + shift, w->end());
+//  Flip(w->begin(), w->end());
+//}
+//
+Word CyclicReduce(Word w) {
+  while (w.size() > 1) {
+    if (w.GetFront() == FoldedGraph2::Inverse(w.GetBack())) {
+      w.PopBack();
+      w.PopFront();
+    } else {
+      break;
     }
-    ++first;
   }
-  return {};
+  return w;
 }
 
 void PermuteToMin(Word* w) {
-  if (w->empty()) return;
+  if (w->Empty()) return;
 
   auto current_permutation = *w;
   for (auto i = 0u; i < w->size() - 1; ++i) {
-    LeftShift(current_permutation.begin(), current_permutation.end());
-    if (*w > current_permutation) {
+    current_permutation.CyclicLeftShift();
+    if (current_permutation < *w) {
       *w = current_permutation;
     }
   }
@@ -38,7 +37,7 @@ std::vector<Word> ReduceAndNormalize(std::vector<Word> words) {
   for (auto& word : words) {
     word = CyclicReduce(word);
     auto inverse = word;
-    Invert(inverse.begin(), inverse.end());
+    inverse.Invert();
     PermuteToMin(&word);
     PermuteToMin(&inverse);
     if (inverse < word) {
@@ -53,25 +52,37 @@ std::vector<Word> ReduceAndNormalize(std::vector<Word> words) {
   return words;
 }
 
-Word Conjugate(Word w, const Word& s) {
-  auto result = s;
-  Invert(result.begin(), result.end());
-  result.insert(result.end(), w.begin(), w.end());
-  result.insert(result.end(), s.begin(), s.end());
-  w = std::move(result);
-  result.clear();
-  for (const auto& letter : w) {
-    if (result.empty()) {
-      result.push_back(letter);
-      continue;
-    }
-    if (FoldedGraph2::Inverse(letter) == result.back()) {
-      result.pop_back();
-    } else {
-      result.push_back(letter);
-    }
+Word Conjugate(Word w, Word s) {
+  auto s_inv = s;
+  s_inv.Invert();
+  
+  while (!s_inv.Empty() && !w.Empty() && s_inv.GetBack() == FoldedGraph2::Inverse(w.GetFront())) {
+    s_inv.PopBack();
+    w.PopFront();
   }
-  return result;
+
+  while(!s_inv.Empty()) {
+    if (w.size() == Word::kMaxLength) {
+      return Word{};
+    }
+    w.PushFront(s_inv.GetBack());
+    s_inv.PopBack();
+  }
+
+  while (!s.Empty() && !w.Empty() && s.GetFront() == FoldedGraph2::Inverse(w.GetBack())) {
+    s.PopFront();
+    w.PopBack();
+  }
+
+  while(!s.Empty()) {
+    if (w.size() == Word::kMaxLength) {
+      return Word{};
+    }
+    w.PushBack(s.GetFront());
+    s.PopFront();
+  }
+
+  return w;
 }
 
 } //namespace crag

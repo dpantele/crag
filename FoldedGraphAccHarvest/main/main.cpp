@@ -7,9 +7,7 @@
 using namespace crag;
 
 void PrintWord(const Word& w, std::ostream* out) {
-  for (auto&& l : w) {
-    (*out) << l;
-  }
+  PrintTo(w, out);
 }
 
 int main() {
@@ -37,7 +35,7 @@ int main() {
     {3u, 3u},
   };
 
-  std::pair<Word, Word> initial = {{0u, 2u, 0u, 3u, 1u, 3u}, {0u, 0u, 0u, 2u, 2u, 2u, 2u}};
+  std::pair<Word, Word> initial = {{/*0u,*/ 2u, 0u, 3u, 1u, /*3u*/}, {0u, 0u, 0u, 2u, 2u, 2u, 2u}};
   std::pair<Word, Word> required = {{0u}, {2u}};
 
   std::set<std::pair<Word, Word>> unprocessed_pairs = {initial};
@@ -45,21 +43,19 @@ int main() {
 
   while (!all_pairs.count(required) && !unprocessed_pairs.empty()) {
     std::cout << "all pairs: " << all_pairs.size() << std::endl;
-    std::cout << "unporcessed: " << unprocessed_pairs.size() << std::endl;
+    std::cout << "unprocessed: " << unprocessed_pairs.size() << std::endl;
 
     Word u, v;
     auto next_pair = *unprocessed_pairs.begin();
     unprocessed_pairs.erase(unprocessed_pairs.begin());
-    std::tie(u, v) = std::move(next_pair);
+    std::tie(v, u) = std::move(next_pair);
     std::cout << "u = ";
     PrintWord(u, &std::cout);
     std::cout << "\nv = ";
     PrintWord(v, &std::cout);
     std::cout << std::endl;
-    auto exists = all_pairs.emplace(v, u);
+    auto exists = all_pairs.emplace(u, v);
     if (exists.second) {
-      if (v.size() < u.size())
-        std::cout << "Adding" << std::endl;
       unprocessed_pairs.emplace(*exists.first);
     }
 
@@ -68,7 +64,7 @@ int main() {
     std::set<Word> upp_s;
     
     for (size_t i = 0; i < u.size(); ++i) {
-      LeftShift(u.begin(), u.end());
+      u.CyclicLeftShift();
       for(const auto& s : conjugators) {
         //std::cout << "s=";
         //PrintWord(s, &std::cout);
@@ -80,6 +76,9 @@ int main() {
     }
 
     for (auto&& upp : upp_s) {
+      if (upp.Empty()) {
+        continue;
+      }
       FoldedGraph2 g;
       auto end = g.PushWord(upp);
       g.CompleteWith(v);
@@ -95,7 +94,7 @@ int main() {
     auto new_u_end = std::unique(new_u.begin(), new_u.end());
     auto u_min_size = ~0u;
     for (auto u_p = new_u.begin(); u_p != new_u_end; ++u_p) {
-      auto exists = all_pairs.emplace(v, *u_p);
+      auto exists = all_pairs.emplace(*u_p, v);
       if (exists.second) {
         if (u_min_size > u_p->size()) {
           u_min_size = u_p->size();

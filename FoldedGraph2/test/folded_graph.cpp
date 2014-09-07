@@ -20,20 +20,19 @@ TEST(FoldedGraph2, Trivial) {
 
 FoldedGraph2::Word AlphasToLabels(std::vector<int> alphas) {
   FoldedGraph2::Word result;
-  result.reserve(alphas.size());
   for (auto alpha : alphas) {
     switch(alpha) {
       case 1:
-        result.push_back(0);
+        result.PushBack(0);
         break;
       case -1:
-        result.push_back(1);
+        result.PushBack(1);
         break;
       case 2:
-        result.push_back(2);
+        result.PushBack(2);
         break;
       case -2:
-        result.push_back(3);
+        result.PushBack(3);
         break;
       default:
         assert(false);
@@ -255,37 +254,37 @@ TEST(FoldedGraph2, Harvest1) {
   auto words = g.Harvest(10, 1, 4);
 
   std::vector<FoldedGraph2::Word> correct = {
+    { 1 },
     { 0, 0, 2 },
+    { 0, 2, 2, 0, 2 },
+    { 0, 2, 2, 1, 1 },
+    { 0, 3, 3, 0, 2 },
+    { 0, 3, 3, 1, 1 },
+    { 1, 3, 1, 1, 1 },
     { 0, 0, 2, 0, 0, 0, 2 },
+    { 0, 2, 2, 2, 2, 0, 2 },
+    { 0, 2, 2, 2, 2, 1, 1 },
+    { 0, 3, 3, 3, 3, 0, 2 },
+    { 0, 3, 3, 3, 3, 1, 1 },
+    { 1, 3, 1, 2, 2, 0, 2 },
+    { 1, 3, 1, 2, 2, 1, 1 },
+    { 1, 3, 1, 3, 3, 0, 2 },
+    { 1, 3, 1, 3, 3, 1, 1 },
     { 0, 0, 2, 0, 0, 2, 2, 0, 2 },
     { 0, 0, 2, 0, 0, 2, 2, 1, 1 },
     { 0, 0, 2, 0, 0, 3, 3, 0, 2 },
     { 0, 0, 2, 0, 0, 3, 3, 1, 1 },
-    { 0, 2, 2, 0, 2 },
     { 0, 2, 2, 0, 2, 0, 0, 0, 2 },
-    { 0, 2, 2, 1, 1 },
     { 0, 2, 2, 1, 1, 3, 1, 1, 1 },
-    { 0, 2, 2, 2, 2, 0, 2 },
-    { 0, 2, 2, 2, 2, 1, 1 },
     { 0, 2, 2, 2, 2, 2, 2, 0, 2 },
     { 0, 2, 2, 2, 2, 2, 2, 1, 1 },
-    { 0, 3, 3, 0, 2 },
     { 0, 3, 3, 0, 2, 0, 0, 0, 2 },
-    { 0, 3, 3, 1, 1 },
     { 0, 3, 3, 1, 1, 3, 1, 1, 1 },
-    { 0, 3, 3, 3, 3, 0, 2 },
-    { 0, 3, 3, 3, 3, 1, 1 },
     { 0, 3, 3, 3, 3, 3, 3, 0, 2 },
     { 0, 3, 3, 3, 3, 3, 3, 1, 1 },
-    { 1 },
-    { 1, 3, 1, 1, 1 },
     { 1, 3, 1, 1, 1, 3, 1, 1, 1 },
-    { 1, 3, 1, 2, 2, 0, 2 },
-    { 1, 3, 1, 2, 2, 1, 1 },
     { 1, 3, 1, 2, 2, 2, 2, 0, 2 },
     { 1, 3, 1, 2, 2, 2, 2, 1, 1 },
-    { 1, 3, 1, 3, 3, 0, 2 },
-    { 1, 3, 1, 3, 3, 1, 1 },
     { 1, 3, 1, 3, 3, 3, 3, 0, 2 },
     { 1, 3, 1, 3, 3, 3, 3, 1, 1 }
   };
@@ -328,7 +327,7 @@ TEST(FoldedGraph2, Harvest1) {
 //}
 
 TEST(FoldedGraph2, PushCycleStressRandom) {
-#ifdef NDEBUG
+#ifndef NDEBUG
   static const unsigned int kRepeat = 100000;
 #else
   static const unsigned int kRepeat = 1000000;
@@ -343,9 +342,8 @@ TEST(FoldedGraph2, PushCycleStressRandom) {
     for (auto j = 0u; j < kWords; ++j) {
       FoldedGraph2::Word w;
       size_t length = random_length(engine);
-      w.reserve(length);
       while(w.size() < length) {
-        w.push_back(random_letter(engine));
+        w.PushBack(random_letter(engine));
       }
 
       g.PushCycle(w);

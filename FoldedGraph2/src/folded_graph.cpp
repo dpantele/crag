@@ -20,8 +20,8 @@ Vertex& VertexEdges::endpoint(Label l) {
   return edges_[l];
 }
 
-std::tuple<Vertex, Word::size_type> FoldedGraph2::ReadWord(const Word& w, size_t length_limit, Vertex s) const {
-  if (w.empty()) {
+std::tuple<Vertex, Word::size_type> FoldedGraph2::ReadWord(Word w, Word::size_type length_limit, Vertex s) const {
+  if (w.Empty()) {
     return std::make_tuple(s, 0u);
   }
 
@@ -31,30 +31,29 @@ std::tuple<Vertex, Word::size_type> FoldedGraph2::ReadWord(const Word& w, size_t
     length_limit = w.size();
   }
 
-  const auto end = w.begin() + length_limit;
-
-  for (auto letter = w.begin(); letter != end; ++letter) {
-    auto next = GetLastCombinedWith(vertex(s).endpoint(*letter));
+  for (auto i = 0u; i < length_limit; ++i) {
+    auto next = GetLastCombinedWith(vertex(s).endpoint(w.GetFront()));
     if (next) {
       s = next;
     } else {
-      return std::make_tuple(s, letter - w.begin());
+      return std::make_tuple(s, i);
     }
+    w.PopFront();
   }
 
   return std::make_tuple(s, length_limit);
 }
 
-std::tuple<Vertex, Word::size_type> FoldedGraph2::ReadWord(const Word& w, Vertex s) const {
+std::tuple<Vertex, Word::size_type> FoldedGraph2::ReadWord(Word w, Vertex s) const {
   return ReadWord(w, w.size(), s);
 }
 
-std::tuple<Vertex, Word::size_type> FoldedGraph2::ReadWord(const Word& w) const {
+std::tuple<Vertex, Word::size_type> FoldedGraph2::ReadWord(Word w) const {
   return ReadWord(w, w.size(), root());
 }
 
-std::tuple<Vertex, Word::size_type> FoldedGraph2::ReadInverse(const Word& w, size_t length_limit, Vertex s) const {
-  if (w.empty()) {
+std::tuple<Vertex, Word::size_type> FoldedGraph2::ReadInverse(Word w, Word::size_type length_limit, Vertex s) const {
+  if (w.Empty()) {
     return std::make_tuple(s, 0u);
   }
 
@@ -64,25 +63,24 @@ std::tuple<Vertex, Word::size_type> FoldedGraph2::ReadInverse(const Word& w, siz
     length_limit = w.size();
   }
 
-  const auto end = w.rbegin() + length_limit;
-
-  for (auto letter = w.rbegin(); letter != end; ++letter) {
-    auto next = vertex(s).endpoint(FoldedGraph2::Inverse(*letter));
+  for (auto i = 0u; i < length_limit; ++i) {
+    auto next = GetLastCombinedWith(vertex(s).endpoint(Inverse(w.GetBack())));
     if (next) {
       s = next;
     } else {
-      return std::make_tuple(s, letter - w.rbegin());
+      return std::make_tuple(s, i);
     }
+    w.PopBack();
   }
 
   return std::make_tuple(s, length_limit);
 }
 
-std::tuple<Vertex, Word::size_type> FoldedGraph2::ReadInverse(const Word& w, Vertex s) const {
+std::tuple<Vertex, Word::size_type> FoldedGraph2::ReadInverse(Word w, Vertex s) const {
   return ReadInverse(w, w.size(), s);
 }
 
-std::tuple<Vertex, Word::size_type> FoldedGraph2::ReadInverse(const Word& w) const {
+std::tuple<Vertex, Word::size_type> FoldedGraph2::ReadInverse(Word w) const {
   return ReadInverse(w, w.size(), root());
 }
 
@@ -144,16 +142,18 @@ Vertex FoldedGraph2::AddEdge(Label l, Vertex from, Vertex to) {
   return to;
 }
 
-Vertex FoldedGraph2::PushWord(const Word& w, Vertex s) {
-  if (w.empty()) {
+Vertex FoldedGraph2::PushWord(Word w, Vertex s) {
+  if (w.Empty()) {
     return s;
   }
 
   Word::size_type existing_length{};
 
   std::tie(s, existing_length) = ReadWord(w, s);
-  for(auto letter = w.begin() + existing_length; letter != w.end(); ++letter) {
-    s = AddEdge(*letter, s);
+  w.PopFront(existing_length);
+  while (!w.Empty()) {
+    s = AddEdge(w.GetFront(), s);
+    w.PopFront();
   }
 
   assert(s > 1);
@@ -212,8 +212,8 @@ void FoldedGraph2::JoinVertices(Vertex v1, Vertex v2) {
   }
 }
 
-bool FoldedGraph2::PushCycle(const Word& w, Vertex s) {
-  if (w.empty()) {
+bool FoldedGraph2::PushCycle(Word w, Vertex s) {
+  if (w.Empty()) {
     return false;
   }
 
@@ -223,23 +223,21 @@ bool FoldedGraph2::PushCycle(const Word& w, Vertex s) {
   std::tie(prefix_end, existing_prefix_length) = ReadWord(w, s);
   
 
-  auto after_prefix_letter = w.begin() + existing_prefix_length;
-  Word::const_iterator begin_suffix_letter; 
+  auto after_prefix_word = w;
+  after_prefix_word.PopFront(existing_prefix_length);
 
-  if (after_prefix_letter != w.end()) { //if we can't read the whole word
+  if (!after_prefix_word.Empty()) { //if we can't read the whole word
     std::tie(suffix_begin, existing_suffix_length) = ReadInverse(w, s);
-    begin_suffix_letter = w.end() - existing_suffix_length;
 
-    while (after_prefix_letter + 1 < begin_suffix_letter) {
-      prefix_end = AddEdge(*after_prefix_letter, prefix_end);
-      ++after_prefix_letter;
+    while (existing_suffix_length + 1 < after_prefix_word.size()) {
+      prefix_end = AddEdge(after_prefix_word.GetFront(), prefix_end);
+      after_prefix_word.PopFront();
     }
-    assert(after_prefix_letter != w.end());
 
-    if (after_prefix_letter + 1 == begin_suffix_letter) {
+    if (existing_suffix_length + 1 == after_prefix_word.size()) {
       //if we added 1, -1, 1, we probably now have to join (1, -1) and (1)
-      auto current_endpoint = vertex(prefix_end).endpoint(*after_prefix_letter);
-      auto other_side = vertex(suffix_begin).endpoint(Inverse(*after_prefix_letter));
+      auto current_endpoint = vertex(prefix_end).endpoint(after_prefix_word.GetFront());
+      auto other_side = vertex(suffix_begin).endpoint(Inverse(after_prefix_word.GetFront()));
       if (current_endpoint == suffix_begin) {
         assert(other_side == prefix_end);
         return true;
@@ -253,7 +251,7 @@ bool FoldedGraph2::PushCycle(const Word& w, Vertex s) {
         JoinVertices(prefix_end, other_side);
       }
       
-      AddEdge(*after_prefix_letter, prefix_end, suffix_begin);
+      AddEdge(after_prefix_word.GetFront(), prefix_end, suffix_begin);
       return true;
     }
   } else {
@@ -261,7 +259,6 @@ bool FoldedGraph2::PushCycle(const Word& w, Vertex s) {
       return false;
     } else {
       std::tie(suffix_begin, existing_suffix_length) = ReadInverse(w, s);
-      begin_suffix_letter = w.end() - existing_suffix_length;
     }
   }
 
@@ -276,9 +273,9 @@ bool FoldedGraph2::PushCycle(const Word& w, Vertex s) {
   
   */
 
-
-  auto before_common_length = begin_suffix_letter - w.begin();
-  assert(before_common_length >= 0 && static_cast<unsigned int>(before_common_length) <= existing_prefix_length);
+  assert(w.size() >= existing_suffix_length);
+  auto before_common_length = w.size() - existing_suffix_length;
+  assert(before_common_length <= existing_prefix_length);
 
   std::tie(prefix_end, before_common_length) = ReadWord(w, before_common_length, s);
   assert(prefix_end != suffix_begin);
@@ -287,24 +284,9 @@ bool FoldedGraph2::PushCycle(const Word& w, Vertex s) {
   return true;
 }
 
-Word CyclicShift(Word r) {
-  if (r.size() <= 1) {
-    return r;
-  }
-
-  auto front = r.front();
-  auto first = r.begin();
-  auto second = ++r.begin();
-  for (; second != r.end(); ++first, ++second) {
-    *first = *second;
-  }
-  r.back() = front;
-  return r;
-}
-
 void FoldedGraph2::CompleteWith(Word r) {
   auto initial_vertex_count = edges_.size();
-  for (size_t shift = 0; shift < r.size(); ++shift, r = CyclicShift(std::move(r))) {
+  for (size_t shift = 0; shift < r.size(); ++shift, r.CyclicLeftShift()) {
     for (auto vertex = root(); vertex < initial_vertex_count; ++vertex) {
       if (edges_[vertex].combined_with_) {
         continue;
@@ -363,7 +345,7 @@ std::vector<Word> FoldedGraph2::Harvest(size_t k, Vertex v1, Vertex v2, const st
 
   std::vector<Word> result;
 
-  for(size_t label = 0; label < kAlphabetSize * 2; ++label) {
+  for(Label label = 0; label < kAlphabetSize * 2; ++label) {
     auto endpoint = vertex(v2).endpoint(label);
 
     if (endpoint == kNullVertex) {
@@ -376,10 +358,9 @@ std::vector<Word> FoldedGraph2::Harvest(size_t k, Vertex v1, Vertex v2, const st
     
     auto shorter_words = Harvest(k - 1, v1, endpoint, v1_distances);
     for (const auto& word : shorter_words) {
-      if (word.back() != label) { //don't add words with cancellations
-        Word new_word = word;
-        new_word.push_back(Inverse(label));
-        result.emplace_back(std::move(new_word));
+      if (word.GetBack() != label) { //don't add words with cancellations
+        result.push_back(word);
+        result.back().PushBack(Inverse(label));
       }
     }
   }

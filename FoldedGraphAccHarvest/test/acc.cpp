@@ -72,7 +72,7 @@ TEST(WordOp, CyclicReduce5) {
 }
 
 TEST(WordOp, ReduceAndNormalize1) {
-  EXPECT_EQ(std::vector<Word>({{0}, {2}, {0, 2, 1}}), ReduceAndNormalize({{0}, {1}, {0, 2, 1}, {2, 2, 1, 0, 3}}));
+  EXPECT_EQ(std::vector<Word>({{0}, {2}}), ReduceAndNormalize({{0}, {1}, {0, 2, 1}, {2, 2, 1, 0, 3}}));
 }
 
 TEST(WordOp, Conjugate1) {

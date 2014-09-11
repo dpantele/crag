@@ -24,14 +24,19 @@ public:
   { }
 
   CWord(std::initializer_list<unsigned int> letters)
-    : size_(static_cast<size_type>(letters.size()))
+    : size_(0)
     , letters_(0)
   {
     assert(letters.size() <= kMaxLength);
     for (auto letter : letters) {
       assert(letter < kAlphabetSize * 2);
-      letters_ <<= kLetterShift;
-      letters_ |= letter;
+      if (!Empty() && GetBack() == (letter ^ 1)) {
+        PopBack();
+      } else {
+        letters_ <<= kLetterShift;
+        letters_ |= letter;
+        ++size_;
+      }
     }
   }
 
@@ -46,16 +51,24 @@ public:
   void PushBack(unsigned int letter) {
     assert(letter < kAlphabetSize * 2);
     assert(size_ < kMaxLength);
-    letters_ <<= kLetterShift;
-    letters_ |= letter;
-    ++size_;
+    if(Empty() || (letter ^ 1) != GetBack()) {
+      letters_ <<= kLetterShift;
+      letters_ |= letter;
+      ++size_;
+    } else {
+      PopBack();
+    }
   }
 
   void PushFront(unsigned int letter) {
     assert(letter < kAlphabetSize * 2);
     assert(size_ < kMaxLength);
-    letters_ |= (letter << (kLetterShift * size_));
-    ++size_;
+    if(Empty() || (letter ^ 1) != GetFront()) {
+      letters_ |= (letter << (kLetterShift * size_));
+      ++size_;
+    } else {
+      PopFront();
+    }
   }
 
   void PopBack() {
@@ -161,7 +174,7 @@ public:
 inline void PrintTo(CWord w, ::std::ostream* os) {
   *os << w.size() << ": ";
   while (!w.Empty()) {
-    *os << w.GetFront();
+    *os << static_cast<char>((w.GetFront() % 2 ? 'X' : 'x') + w.GetFront() / 2);
     w.PopFront();
   }
 }

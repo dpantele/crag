@@ -18,25 +18,24 @@ int main() {
     {2u},
     {3u},
     {0u, 0u},
-    {0u, 1u},
     {0u, 2u},
     {0u, 3u},
-    {1u, 0u},
     {1u, 1u},
     {1u, 2u},
     {1u, 3u},
     {2u, 0u},
     {2u, 1u},
     {2u, 2u},
-    {2u, 3u},
     {3u, 0u},
     {3u, 1u},
-    {3u, 2u},
     {3u, 3u},
   };
 
-  std::pair<Word, Word> initial = {{/*0u,*/ 2u, 0u, 3u, 1u, /*3u*/}, {0u, 0u, 0u, 2u, 2u, 2u, 2u}};
+  std::pair<Word, Word> initial = {{0u, 2u, 0u, 3u, 1u, 3u}, {0u, 0u, 0u, 2u, 2u, 2u, 2u}};
   std::pair<Word, Word> required = {{0u}, {2u}};
+
+  auto normalized = ReduceAndNormalize({initial.first, initial.second});
+  initial = {normalized[0], normalized[1]};
 
   std::set<std::pair<Word, Word>> unprocessed_pairs = {initial};
   std::set<std::pair<Word, Word>> all_pairs = {initial};
@@ -83,7 +82,7 @@ int main() {
       auto end = g.PushWord(upp);
       g.CompleteWith(v);
       g.CompleteWith(v);
-      auto eq_u = g.Harvest(12, g.root(), end);
+      auto eq_u = g.Harvest(16, g.root(), end);
       ReduceAndNormalize(eq_u);
       new_u.reserve(new_u.size() + eq_u.size());
       for(auto& up : eq_u) {

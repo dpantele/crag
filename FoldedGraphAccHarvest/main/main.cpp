@@ -4,7 +4,9 @@
 #include <cstdlib>
 #include <deque>
 #include <iostream>
+#include <iomanip>
 #include <list>
+#include <string>
 
 using namespace crag;
 
@@ -12,50 +14,87 @@ void PrintWord(const Word& w, std::ostream* out) {
   PrintTo(w, out);
 }
 
-int main(int argc, char *argv[]) {
-  std::vector<Word> conjugators = {
-    {},
-    {0u},
-    {1u},
-    {2u},
-    {3u},
-    {0u, 0u},
-    {0u, 2u},
-    {0u, 3u},
-    {1u, 1u},
-    {1u, 2u},
-    {1u, 3u},
-    {2u, 0u},
-    {2u, 1u},
-    {2u, 2u},
-    {3u, 0u},
-    {3u, 1u},
-    {3u, 3u},
-  };
+std::vector<std::string> Split(const std::string& str, char split = ':') {
+  std::vector<std::string> result;
+  decltype(str.find(split)) last_split = 0;
+  while (last_split < str.size()) {
+    auto new_split = str.find(split, last_split);
+    result.push_back(str.substr(last_split, new_split - last_split));
+    if (new_split == std::string::npos) {
+      break;
+    }
+    last_split = new_split + 1;
+  }
+  return result;
+}
+ 
+int main(int argc, const char *argv[]) {
+  size_t max_harvest_length = Word::kMaxLength;
+  unsigned int max_conj_size = 2;
+  std::vector<uint16_t> complete_count(Word::kMaxLength + 1, 2);
+  std::pair<Word, Word> initial = {Word("xyxYXY"), Word("xxxYYYY")};
+  std::pair<Word, Word> required = {Word("x"), Word("y")};
 
-  std::pair<Word, Word> initial = { { 0u, 2u, 0u, 3u, 1u, 3u }, { 0u, 0u, 0u, 3u, 3u, 3u, 3u } };
-  // std::pair<Word, Word> initial = { { 0u, 2u, 0u, 3u, 1u, 3u }, { 0u, 0u, 3u, 3u, 3u } };
-  std::pair<Word, Word> required = { { 0u }, { 2u } };
+  for (int argi = 1; argi < argc; ++argi) {
+    auto arg = Split(argv[argi]);
+    if (arg.empty()) {
+      continue;
+    }
 
+    if (arg.front() == "maxhl") {
+      max_harvest_length = std::stoi(arg[1]);
+    } else if (arg.front() == "conj") {
+      max_conj_size = std::stoi(arg[1]);
+    } else if (arg.front() == "comp") {
+      auto up_to = std::stoi(arg[1]);
+      auto count = std::stoi(arg[2]);
+      if (complete_count.size() < up_to) {
+        complete_count.resize(up_to, count);
+      }
+      for (size_t i = 0; i < up_to; ++i) {
+        complete_count[i] = count; 
+      }
+    } else if (arg.front() == "init") {
+      initial.first = Word(arg[1]);
+      initial.second = Word(arg[2]);
+    }
+  }
+
+  auto conjugators = GenAllWords(max_conj_size);
   auto normalized = ReduceAndNormalize({initial.first, initial.second});
   initial = {normalized[0], normalized[1]};
+
+  std::cout << "Configuration: " << std::endl;
+  std::cout << "Max length for harvest: " << max_harvest_length << std::endl;
+  std::cout << "Max conjugator length:  " << max_conj_size << std::endl;
+  std::cout << "Conjugator count:       " << conjugators.size() << std::endl;
+  std::cout << "Initial words:          ";
+  PrintWord(initial.first, &std::cout);
+  std::cout << " | ";
+  PrintWord(initial.second, &std::cout);
+  std::cout << "\nHow many times graph is completed with v: " << std::endl;
+  std::cout << "Length of v: ";
+  for (auto i = 0u; i < complete_count.size(); ++i) {
+    std::cout << std::setw(2) << i << ' ';
+  }
+  std::cout << "\nTimes:       ";
+  for (auto i = 0u; i < complete_count.size(); ++i) {
+    std::cout << std::setw(2) << complete_count[i] << ' ';
+  }
+  std::cout << "\n\n";
 
   std::set<std::pair<Word, Word>> unprocessed_pairs = {initial};
   std::set<std::pair<Word, Word>> all_pairs = {initial};
 
   int counter = 0;
 
-  size_t max_harvest_length = 16;
-  if (argc > 0) {
-    max_harvest_length = std::strtol(argv[1], nullptr, 10);
-  }
   while (!all_pairs.count(required) && !unprocessed_pairs.empty()) {
     ++counter;
-    std::cout << counter << ": ";
+    std::cout << std::left << std::setw(6) << counter << ", ";
     std::cout.width(9);
-    std::cout << unprocessed_pairs.size();
+    std::cout << unprocessed_pairs.size() << ", ";
     std::cout.width(9);
-    std::cout << all_pairs.size();
+    std::cout << all_pairs.size() << ", ";
     // std::cout << std::endl;
 
     Word u, v;
@@ -81,12 +120,7 @@ int main(int argc, char *argv[]) {
     for (size_t i = 0; i < u.size(); ++i) {
       u.CyclicLeftShift();
       for(const auto& s : conjugators) {
-        //std::cout << "s=";
-        //PrintWord(s, &std::cout);
         upp_s.insert(Conjugate(u, s));
-        //std::cout << "\nupp=";
-        //PrintWord(upp, &std::cout);
-        //std::cout << std::endl;
       }
     }
 
@@ -99,10 +133,11 @@ int main(int argc, char *argv[]) {
 
       FoldedGraph2 g;
       auto end = g.PushWord(upp);
-      g.CompleteWith(v);
-      g.CompleteWith(v);
-      if (v.size() <= 7) g.CompleteWith(v);
-      if (v.size() <= 5) g.CompleteWith(v);
+
+      for (auto i = 0u; i < complete_count[v.size()]; ++i) {
+        g.CompleteWith(v);
+      }
+
       auto eq_u = g.Harvest(max_harvest_length, g.root(), end);
       eq_u = ReduceAndNormalize(eq_u);
       new_u.reserve(new_u.size() + eq_u.size());
@@ -125,7 +160,7 @@ int main(int argc, char *argv[]) {
         unprocessed_pairs.emplace(*exists.first);
       }
     }
-    std::cout << "\tsz: ";
+    std::cout << ",\tsz: ";
     for (auto sz = 0u; sz < Word::kMaxLength; ++sz) {
       if (available_sizes[sz]) {
         std::cout << sz + 1 << ",";

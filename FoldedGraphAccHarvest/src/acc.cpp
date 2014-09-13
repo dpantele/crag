@@ -85,4 +85,67 @@ Word Conjugate(Word w, Word s) {
   return w;
 }
 
+uint64_t ipow(uint64_t base, uint64_t exp) {
+  uint64_t result = 1;
+  while (exp) {
+    if (exp % 2) {
+        result *= base;
+    }
+    exp /= 2;
+    base *= base;
+  }
+
+  return result;
+}
+
+struct IterationVector {
+  typedef unsigned int Symbol;
+
+  std::vector<Symbol> current_;
+  Symbol max_symbol_;
+  uint64_t total_combinations_;
+
+  explicit operator bool() const {
+    return total_combinations_ != 0;
+  }
+
+  IterationVector(size_t length, Symbol max_symbol)
+    : current_(length)
+    , max_symbol_(max_symbol)
+    , total_combinations_(ipow(max_symbol_, length))
+  { }
+
+  IterationVector& operator++() {
+    if (total_combinations_ == 0) {
+      return *this;
+    }
+    --total_combinations_;
+    for (auto& num : current_) {
+      ++num;
+      if (num == max_symbol_) {
+        num = 0;
+      } else {
+        break;
+      }
+    }
+    return *this;
+  }
+};
+
+std::set<Word> GenAllWords(unsigned int max_length) {
+  std::set<Word> result = {{}};
+  for (auto i = 1u; i <= max_length; ++i) {
+    IterationVector v(i, Word::kAlphabetSize * 2);
+    while (v) {
+      Word w;
+      for (const auto& letter : v.current_) {
+        w.PushFront(letter);
+      }
+      result.emplace(w);
+      ++v;
+    }
+  }
+  return result;
+}
+
 } //namespace crag

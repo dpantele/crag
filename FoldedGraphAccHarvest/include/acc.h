@@ -69,4 +69,8 @@ std::vector<Word> ReduceAndNormalize(std::vector<Word> words);
 
 //! w -> s^(-1) w s
 Word Conjugate(Word w, Word s);
+
+uint64_t ipow(uint64_t base, uint64_t exp);
+
+std::set<Word> GenAllWords(unsigned int max_length);
 } //namespae crag

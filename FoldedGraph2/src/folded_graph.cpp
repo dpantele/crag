@@ -27,6 +27,8 @@ std::tuple<Vertex, Word::size_type> FoldedGraph2::ReadWord(Word w, Word::size_ty
 
   assert(s);
 
+  s = GetLastCombinedWith(s);
+
   if (length_limit > w.size()) {
     length_limit = w.size();
   }
@@ -58,6 +60,8 @@ std::tuple<Vertex, Word::size_type> FoldedGraph2::ReadInverse(Word w, Word::size
   }
 
   assert(s);
+
+  s = GetLastCombinedWith(s);
 
   if (length_limit > w.size()) {
     length_limit = w.size();
@@ -143,6 +147,7 @@ Vertex FoldedGraph2::AddEdge(Label l, Vertex from, Vertex to) {
 }
 
 Vertex FoldedGraph2::PushWord(Word w, Vertex s) {
+  s = GetLastCombinedWith(s);
   if (w.Empty()) {
     return s;
   }
@@ -217,11 +222,12 @@ bool FoldedGraph2::PushCycle(Word w, Vertex s) {
     return false;
   }
 
+  s = GetLastCombinedWith(s);
+
   Word::size_type existing_prefix_length{}, existing_suffix_length{};
   Vertex prefix_end{}, suffix_begin{};
 
   std::tie(prefix_end, existing_prefix_length) = ReadWord(w, s);
-  
 
   auto after_prefix_word = w;
   after_prefix_word.PopFront(existing_prefix_length);
@@ -298,13 +304,14 @@ void FoldedGraph2::CompleteWith(Word r) {
 }
 
 std::vector<unsigned int> FoldedGraph2::ComputeDistances(Vertex v) const {
+  v = GetLastCombinedWith(v);
   std::vector<unsigned int> distance(edges_.size(), std::numeric_limits<unsigned int>::max());
   distance[v] = 0;
   
   std::deque<Vertex> q = {v};
 
   while (!q.empty()) {
-    auto next = q.front();
+    auto next = GetLastCombinedWith(q.front());
     q.pop_front();
 
     for(auto neighbor : vertex(next).edges_) {
@@ -325,6 +332,8 @@ std::vector<unsigned int> FoldedGraph2::ComputeDistances(Vertex v) const {
 }
 
 std::vector<Word> FoldedGraph2::Harvest(size_t k, Vertex v1, Vertex v2) const {
+  v1 = GetLastCombinedWith(v1);
+  v2 = GetLastCombinedWith(v2);
   auto v1_distances = this->ComputeDistances(v1);
   auto result = Harvest(k, v1, v2, v1_distances);
   std::sort(result.begin(), result.end());
@@ -338,6 +347,9 @@ std::vector<Word> FoldedGraph2::Harvest(size_t k, Vertex v1, Vertex v2, const st
   if (k == 0) {
     return {};
   }
+
+  v1 = GetLastCombinedWith(v1);
+  v2 = GetLastCombinedWith(v2);
 
   if (k < v1_distances[v2]) {
     return {};

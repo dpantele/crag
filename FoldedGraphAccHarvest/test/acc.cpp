@@ -83,6 +83,33 @@ TEST(WordOp, Conjugate2) {
   EXPECT_EQ(Word({0u}), Conjugate({0u}, {0u, 0u}));
 }
 
+TEST(GenAllWords, L1) {
+  EXPECT_EQ(std::set<Word>({Word(), Word({0u}), Word({1u}), Word({2u}), Word({3u})}), GenAllWords(1));
+}
+
+TEST(GenAllWords, L2) {
+  EXPECT_EQ(std::set<Word>({
+    {},
+    {0u},
+    {1u},
+    {2u},
+    {3u},
+    {0u, 0u},
+    {0u, 2u},
+    {0u, 3u},
+    {1u, 1u},
+    {1u, 2u},
+    {1u, 3u},
+    {2u, 0u},
+    {2u, 1u},
+    {2u, 2u},
+    {3u, 0u},
+    {3u, 1u},
+    {3u, 3u},
+  }), GenAllWords(2));
+}
+
+
 } //namespace
 
 } //namespace crag

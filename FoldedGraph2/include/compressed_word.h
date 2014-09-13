@@ -23,7 +23,7 @@ public:
     , letters_(0)
   { }
 
-  CWord(std::initializer_list<unsigned int> letters)
+  explicit CWord(std::initializer_list<unsigned int> letters)
     : size_(0)
     , letters_(0)
   {
@@ -40,8 +40,37 @@ public:
     }
   }
 
+  explicit CWord(const std::string& letters) 
+    : size_(0)
+    , letters_(0)
+  {
+    for (auto&& sym : letters) {
+      switch (sym) {
+        case 'x':
+          PushBack(0);
+          break;
+        case 'X':
+          PushBack(1);
+          break;
+        case 'y':
+          PushBack(2);
+          break;
+        case 'Y':
+          PushBack(3);
+          break;
+        default:
+          throw std::runtime_error("Only x, y, X, Y are allowed to be passed to CWord constructor");
+      }
+    }
+  }
+
   bool Empty() const {
     return size_ == 0;
+  }
+
+  void Clear() {
+    size_ = 0;
+    letters_ = 0;
   }
 
   uint32_t size() const {

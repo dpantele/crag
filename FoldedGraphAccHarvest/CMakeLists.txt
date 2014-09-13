@@ -10,4 +10,5 @@ crag_library(AccHarvest
 
 target_link_libraries(AccHarvest PUBLIC FoldedGraph2)
 crag_test(acc FoldedGraph2 AccHarvest)
+
 crag_main(main AccHarvest)

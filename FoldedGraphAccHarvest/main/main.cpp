@@ -1,5 +1,6 @@
 #include "acc.h"
 
+#include <bitset>
 #include <deque>
 #include <iostream>
 #include <list>
@@ -31,8 +32,9 @@ int main() {
     {3u, 3u},
   };
 
-  std::pair<Word, Word> initial = {{0u, 2u, 0u, 3u, 1u, 3u}, {0u, 0u, 0u, 2u, 2u, 2u, 2u}};
-  std::pair<Word, Word> required = {{0u}, {2u}};
+  std::pair<Word, Word> initial = { { 0u, 2u, 0u, 3u, 1u, 3u }, { 0u, 0u, 0u, 3u, 3u, 3u, 3u } };
+  // std::pair<Word, Word> initial = { { 0u, 2u, 0u, 3u, 1u, 3u }, { 0u, 0u, 3u, 3u, 3u } };
+  std::pair<Word, Word> required = { { 0u }, { 2u } };
 
   auto normalized = ReduceAndNormalize({initial.first, initial.second});
   initial = {normalized[0], normalized[1]};
@@ -40,19 +42,27 @@ int main() {
   std::set<std::pair<Word, Word>> unprocessed_pairs = {initial};
   std::set<std::pair<Word, Word>> all_pairs = {initial};
 
+  int counter = 0;
   while (!all_pairs.count(required) && !unprocessed_pairs.empty()) {
-    std::cout << "all pairs: " << all_pairs.size() << std::endl;
-    std::cout << "unprocessed: " << unprocessed_pairs.size() << std::endl;
+    ++counter;
+    std::cout << counter << ": ";
+    std::cout.width(9);
+    std::cout << unprocessed_pairs.size();
+    std::cout.width(9);
+    std::cout << all_pairs.size();
+    // std::cout << std::endl;
 
     Word u, v;
     auto next_pair = *unprocessed_pairs.begin();
     unprocessed_pairs.erase(unprocessed_pairs.begin());
     std::tie(v, u) = std::move(next_pair);
-    std::cout << "u = ";
+    //std::cout << "u = ";
+    std::cout << "  (";
     PrintWord(u, &std::cout);
-    std::cout << "\nv = ";
+    std::cout << " | ";
+    // std::cout << "\nv = ";
     PrintWord(v, &std::cout);
-    std::cout << std::endl;
+    std::cout << ")";
     auto exists = all_pairs.emplace(u, v);
     if (exists.second) {
       unprocessed_pairs.emplace(*exists.first);
@@ -78,34 +88,44 @@ int main() {
       if (upp.Empty()) {
         continue;
       }
+      // PrintWord(upp, &std::cout);
+      // std::cout << std::endl;
+
       FoldedGraph2 g;
       auto end = g.PushWord(upp);
       g.CompleteWith(v);
       g.CompleteWith(v);
+      if (v.size() <= 7) g.CompleteWith(v);
+      if (v.size() <= 5) g.CompleteWith(v);
       auto eq_u = g.Harvest(16, g.root(), end);
-      ReduceAndNormalize(eq_u);
+      eq_u = ReduceAndNormalize(eq_u);
       new_u.reserve(new_u.size() + eq_u.size());
       for(auto& up : eq_u) {
         new_u.push_back(std::move(up));
+        // PrintWord(up, &std::cout);
+        // std::cout << std::endl;
       }
     }
+
     std::sort(new_u.begin(), new_u.end());
     auto new_u_end = std::unique(new_u.begin(), new_u.end());
-    auto u_min_size = ~0u;
+    std::bitset<Word::kMaxLength> available_sizes;
     for (auto u_p = new_u.begin(); u_p != new_u_end; ++u_p) {
       auto exists = all_pairs.emplace(*u_p, v);
       if (exists.second) {
-        if (u_min_size > u_p->size()) {
-          u_min_size = u_p->size();
+        if (u_p->size() > 0) {
+          available_sizes.set(u_p->size() - 1);
         }
         unprocessed_pairs.emplace(*exists.first);
       }
     }
-    std::cout << "Min size: " << u_min_size << std::endl;
-    if (u_min_size <= 4) {
-      std::cout << "done" << std::endl;
-      return 0;
+    std::cout << "\tsz: ";
+    for (auto sz = 0u; sz < Word::kMaxLength; ++sz) {
+      if (available_sizes[sz]) {
+        std::cout << sz + 1 << ",";
+      }
     }
+    std::cout << std::endl;
   }
 
   return 0;

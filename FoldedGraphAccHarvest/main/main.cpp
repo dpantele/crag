@@ -1,6 +1,7 @@
 #include "acc.h"
 
 #include <bitset>
+#include <cstdlib>
 #include <deque>
 #include <iostream>
 #include <list>
@@ -11,7 +12,7 @@ void PrintWord(const Word& w, std::ostream* out) {
   PrintTo(w, out);
 }
 
-int main() {
+int main(int argc, char *argv[]) {
   std::vector<Word> conjugators = {
     {},
     {0u},
@@ -43,6 +44,11 @@ int main() {
   std::set<std::pair<Word, Word>> all_pairs = {initial};
 
   int counter = 0;
+
+  size_t max_harvest_length = 16;
+  if (argc > 0) {
+    max_harvest_length = std::strtol(argv[1], nullptr, 10);
+  }
   while (!all_pairs.count(required) && !unprocessed_pairs.empty()) {
     ++counter;
     std::cout << counter << ": ";
@@ -97,7 +103,7 @@ int main() {
       g.CompleteWith(v);
       if (v.size() <= 7) g.CompleteWith(v);
       if (v.size() <= 5) g.CompleteWith(v);
-      auto eq_u = g.Harvest(16, g.root(), end);
+      auto eq_u = g.Harvest(max_harvest_length, g.root(), end);
       eq_u = ReduceAndNormalize(eq_u);
       new_u.reserve(new_u.size() + eq_u.size());
       for(auto& up : eq_u) {

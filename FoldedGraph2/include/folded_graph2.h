@@ -1,5 +1,6 @@
 #include <array>
 #include <cassert>
+#include <cstdint>
 #include <set>
 #include <tuple>
 #include <vector>
@@ -17,6 +18,9 @@ public:
   //! Type representing vertices
   typedef unsigned int Vertex;
 
+  //! Weight ofo edges
+  typedef int64_t Weight;
+
   //! Type representing symbols and hence labels
   /**
    * We use the following presentation: \f$1 = a, -1 = a^{-1}, 2 = b, 3 = b^{-1}, \ldots\f$
@@ -28,7 +32,6 @@ public:
     return l ^ 1;
   }
 
-
   //! Get the ID of the root vertex. 
   static const Vertex root() {
     return kRootVertex;
@@ -38,9 +41,11 @@ public:
   struct VertexEdges {
     VertexEdges()
       : edges_()
+      , weights_()
     { }
 
     std::array<Vertex, kAlphabetSize * 2> edges_; //!< Id of the endpoint of the edge labeled by (i / 2)^(i % 2), NullVertex if no edge
+    std::array<Weight, kAlphabetSize * 2> weights_; //!< Id of the endpoint of the edge labeled by (i / 2)^(i % 2), NullVertex if no edge
     mutable Vertex combined_with_ = kNullVertex; //!< When graph is folded, some vertices are sticked together. If the vertex is, this will be the id.
 
     ///@{
@@ -48,8 +53,10 @@ public:
     Vertex endpoint(Label l) const;
     Vertex& endpoint(Label l);
     ///@}
-  };
 
+    Weight weight(Label l) const;
+
+  };
 
   //! Return the info for the vertex @ref i
   const VertexEdges& vertex(Vertex v) const;
@@ -62,7 +69,7 @@ public:
   * @param w The word to be traced
   * @return A tuple, the first element is the last vertex on the way, the second element is the length of the word traced
   */
-  std::tuple<Vertex, Word::size_type> ReadWord(Word w) const;
+  std::tuple<Vertex, Word::size_type, Weight> ReadWord(Word w) const;
 
 
   //! Traces the word @ref w starting from the vertex @ref s.
@@ -71,7 +78,7 @@ public:
   * @param s The vertex to start from. The root by default
   * @return A tuple, the first element is the last vertex on the way, the second element is the length of the word traced
   */
-  std::tuple<Vertex, Word::size_type> ReadWord(Word w, Vertex s) const;
+  std::tuple<Vertex, Word::size_type, Weight> ReadWord(Word w, Vertex s) const;
 
   //! Traces the word @ref w (but not longer than @ref length_limit) starting from the vertex @ref s.
   /**
@@ -80,14 +87,14 @@ public:
   * @param s The vertex to start from. The root by default
   * @return A tuple, the first element is the last vertex on the way, the second element is the length of the word traced
   */
-  std::tuple<Vertex, Word::size_type> ReadWord(Word w, Word::size_type length_limit, Vertex s) const;
+  std::tuple<Vertex, Word::size_type, Weight> ReadWord(Word w, Word::size_type length_limit, Vertex s) const;
 
   //! Traces the inverse of the word @ref w starting from the root. 
   /**
   * @param w The word to be traced
   * @return A tuple, the first element is the last vertex on the way, the second element is the length of the word traced
   */
-  std::tuple<Vertex, Word::size_type> ReadInverse(Word w) const;
+  std::tuple<Vertex, Word::size_type, Weight> ReadInverse(Word w) const;
 
   //! Traces the inverse of the word @ref w starting from the vertex @ref s.
   /**
@@ -95,7 +102,7 @@ public:
   * @param s The vertex to start from.
   * @return A tuple, the first element is the last vertex on the way, the second element is the length of the word traced
   */
-  std::tuple<Vertex, Word::size_type> ReadInverse(Word w, Vertex s) const;
+  std::tuple<Vertex, Word::size_type, Weight> ReadInverse(Word w, Vertex s) const;
 
   //! Traces the inverse of the word @ref w  (but not longer than @ref length_limit) starting from the vertex @ref s.
   /**
@@ -104,7 +111,7 @@ public:
   * @param s The vertex to start from. The root by default
   * @return A tuple, the first element is the last vertex on the way, the second element is the length of the word traced
   */
-  std::tuple<Vertex, Word::size_type> ReadInverse(Word w, Word::size_type length_limit, Vertex s) const;
+  std::tuple<Vertex, Word::size_type, Weight> ReadInverse(Word w, Word::size_type length_limit, Vertex s) const;
 
   ///@}
 
@@ -115,7 +122,7 @@ public:
   * @param s The vertex to start from. The root by default
   * @return The endpoint
   */
-  Vertex PushWord(Word w, Vertex s = kRootVertex);
+  Vertex PushWord(Word w, Vertex s = kRootVertex, Weight weight = 0);
 
   //! Traces the cycle @ref w starting from the vertex @ref s, creating new vertices if required. 
   /**
@@ -123,7 +130,7 @@ public:
   * @param s The vertex to start from. The root by default
   * @return false if cycle already existed
   */
-  bool PushCycle(Word w, Vertex s = 1);
+  bool PushCycle(Word w, Vertex s = 1, Weight weight = 0);
 
   //! For every vertex s and every cyclic permutation r' of the word r use pushCycle(r',s). 
   void CompleteWith(Word r);
@@ -141,6 +148,10 @@ public:
     : edges_(2)
   { }
 
+  Weight modulus() const {
+    return modulus_;
+  }
+
  private:
   //! The id of the root
   static const Vertex kRootVertex = 1;
@@ -149,6 +160,11 @@ public:
   static const Vertex kNullVertex = 0;
 
   std::vector<VertexEdges> edges_; //!< Main graph storage. Cell #i stores info about vertex #i
+  Weight modulus_ = 0; //!< Something to make incomparable weigth comparable
+
+  Weight WeightMod(Weight weight) const {
+    return modulus_ ? weight % modulus_ : weight;
+  }
 
   //! Return the last vertex in the list of combined vertices
   Vertex GetLastCombinedWith(Vertex v) const; 
@@ -160,6 +176,9 @@ public:
   std::vector<unsigned int> ComputeDistances(Vertex v) const;
 
   std::vector<Word> Harvest(size_t k, Vertex v1, Vertex v2, const std::vector<unsigned int>& v1_distances) const;
+  
+  //! Check that the weight of inverse edges are inverses of each other
+  Vertex FindInconsistentWeights() const;
 
 };
 

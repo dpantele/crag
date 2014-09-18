@@ -7,22 +7,42 @@
 
 namespace crag {
 
+
 using Vertex = FoldedGraph2::Vertex;
 using VertexEdges = FoldedGraph2::VertexEdges;
 using Label = FoldedGraph2::Label;
 using Word = FoldedGraph2::Word;
+using Weight = FoldedGraph2::Weight;
+
+Weight Gcd(Weight a, Weight b) {
+  while (b != 0) {
+    auto c = a % b;
+    a = b;
+    b = c;
+  }
+
+  return a;
+}
 
 Vertex VertexEdges::endpoint(Label l) const {
+  assert(l < 2 * kAlphabetSize);
   return edges_[l];
 }
 
 Vertex& VertexEdges::endpoint(Label l) {
+  assert(l < 2 * kAlphabetSize);
   return edges_[l];
 }
 
-std::tuple<Vertex, Word::size_type> FoldedGraph2::ReadWord(Word w, Word::size_type length_limit, Vertex s) const {
+Weight VertexEdges::weight(Label l) const  {
+  assert(l < 2 * kAlphabetSize);
+  return weights_[l];
+}
+
+std::tuple<Vertex, Word::size_type, Weight> FoldedGraph2::ReadWord(Word w, Word::size_type length_limit, Vertex s) const {
+  Weight cur_weight = 0;
   if (w.Empty()) {
-    return std::make_tuple(s, 0u);
+    return std::make_tuple(s, 0u, cur_weight);
   }
 
   assert(s);
@@ -35,29 +55,33 @@ std::tuple<Vertex, Word::size_type> FoldedGraph2::ReadWord(Word w, Word::size_ty
 
   for (auto i = 0u; i < length_limit; ++i) {
     auto next = GetLastCombinedWith(vertex(s).endpoint(w.GetFront()));
+    cur_weight += vertex(s).weight(w.GetFront());
     if (next) {
+      assert(vertex(s).weight(w.GetFront()) == -vertex(next).weight(Inverse(w.GetFront())));
       s = next;
     } else {
-      return std::make_tuple(s, i);
+      return std::make_tuple(s, i, WeightMod(cur_weight));
     }
     w.PopFront();
   }
 
-  return std::make_tuple(s, length_limit);
+  return std::make_tuple(s, length_limit, WeightMod(cur_weight));
 }
 
-std::tuple<Vertex, Word::size_type> FoldedGraph2::ReadWord(Word w, Vertex s) const {
+std::tuple<Vertex, Word::size_type, Weight> FoldedGraph2::ReadWord(Word w, Vertex s) const {
   return ReadWord(w, w.size(), s);
 }
 
-std::tuple<Vertex, Word::size_type> FoldedGraph2::ReadWord(Word w) const {
+std::tuple<Vertex, Word::size_type, Weight> FoldedGraph2::ReadWord(Word w) const {
   return ReadWord(w, w.size(), root());
 }
 
-std::tuple<Vertex, Word::size_type> FoldedGraph2::ReadInverse(Word w, Word::size_type length_limit, Vertex s) const {
+std::tuple<Vertex, Word::size_type, Weight> FoldedGraph2::ReadInverse(Word w, Word::size_type length_limit, Vertex s) const {
   if (w.Empty()) {
-    return std::make_tuple(s, 0u);
+    return std::make_tuple(s, 0u, 0);
   }
+
+  Weight cur_weight = 0;
 
   assert(s);
 
@@ -69,22 +93,24 @@ std::tuple<Vertex, Word::size_type> FoldedGraph2::ReadInverse(Word w, Word::size
 
   for (auto i = 0u; i < length_limit; ++i) {
     auto next = GetLastCombinedWith(vertex(s).endpoint(Inverse(w.GetBack())));
+    cur_weight += -vertex(s).weight(Inverse(w.GetBack()));
     if (next) {
+      assert(vertex(s).weight(Inverse(w.GetBack())) == -vertex(next).weight(w.GetBack()));
       s = next;
     } else {
-      return std::make_tuple(s, i);
+      return std::make_tuple(s, i, WeightMod(cur_weight));
     }
     w.PopBack();
   }
 
-  return std::make_tuple(s, length_limit);
+  return std::make_tuple(s, length_limit, WeightMod(cur_weight));
 }
 
-std::tuple<Vertex, Word::size_type> FoldedGraph2::ReadInverse(Word w, Vertex s) const {
+std::tuple<Vertex, Word::size_type, Weight> FoldedGraph2::ReadInverse(Word w, Vertex s) const {
   return ReadInverse(w, w.size(), s);
 }
 
-std::tuple<Vertex, Word::size_type> FoldedGraph2::ReadInverse(Word w) const {
+std::tuple<Vertex, Word::size_type, Weight> FoldedGraph2::ReadInverse(Word w) const {
   return ReadInverse(w, w.size(), root());
 }
 
@@ -146,23 +172,50 @@ Vertex FoldedGraph2::AddEdge(Label l, Vertex from, Vertex to) {
   return to;
 }
 
-Vertex FoldedGraph2::PushWord(Word w, Vertex s) {
+Vertex FoldedGraph2::PushWord(Word w, Vertex s, Weight weight) {
   s = GetLastCombinedWith(s);
   if (w.Empty()) {
     return s;
   }
 
   Word::size_type existing_length{};
+  Weight current_weight;
 
-  std::tie(s, existing_length) = ReadWord(w, s);
+  std::tie(s, existing_length, current_weight) = ReadWord(w, s);
   w.PopFront(existing_length);
   while (!w.Empty()) {
-    s = AddEdge(w.GetFront(), s);
+    auto next = AddEdge(w.GetFront(), s);
+    if (!WeightMod(current_weight - weight)) {
+      assert(vertex(s).weights_[w.GetFront()] == 0);
+      edges_[s].weights_[w.GetFront()] = weight - current_weight;
+      edges_[next].weights_[w.GetFront()] = -(weight - current_weight);
+      current_weight = weight;
+    }
+
+    s = next;
     w.PopFront();
   }
 
+  modulus_ = Gcd(std::abs(current_weight - weight), modulus_);
+
   assert(s > 1);
   return s;
+}
+
+Vertex FoldedGraph2::FindInconsistentWeights() const {
+  for(auto&& vertex : edges_) {
+    if (vertex.combined_with_) {
+      continue;
+    }
+
+    for (auto label = 0u; label < 2 * kAlphabetSize; ++label) {
+      auto& neigbour = edges_[GetLastCombinedWith(vertex.endpoint(label))];
+      if (!WeightMod(vertex.weight(label) + neigbour.weight(label))) {
+        return GetLastCombinedWith(neigbour.endpoint(Inverse(label)));
+      }
+    }
+  }
+  return kNullVertex;
 }
 
 bool FoldedGraph2::Equal(Vertex v1, Vertex v2) {
@@ -182,42 +235,72 @@ void FoldedGraph2::JoinVertices(Vertex v1, Vertex v2) {
     return;
   }
 
-  std::deque<std::pair<Vertex, Vertex>> vertex_to_join = {std::make_pair(v1, v2)};
+  std::deque<std::tuple<Vertex, Vertex, Vertex, Label>> vertex_to_join = {std::make_tuple(v1, v2, kNullVertex, 0)};
   while (!vertex_to_join.empty()) {
-    auto current = vertex_to_join.front();
+    Vertex first, second, prev;
+    Label through;
+
+    std::tie(first, second, prev, through) = vertex_to_join.front();
     vertex_to_join.pop_front();
 
-    current.first = GetLastCombinedWith(current.first);
-    current.second = GetLastCombinedWith(current.second);
+    first = GetLastCombinedWith(first);
+    second = GetLastCombinedWith(second);
+    prev = GetLastCombinedWith(prev);
 
-    if (current.first == current.second) {
+    if (first == second) {
+      for(auto label = 0u; label < kAlphabetSize * 2; ++label) {
+        modulus_ = Gcd(std::abs(vertex(prev).weight(label) + vertex(first).weight(Inverse(label))), modulus_);
+      }
       continue;
     }
     
-    if (current.second < current.first) {
-      std::swap(current.first, current.second);
+    if (second < first) {
+      std::swap(first, second);
     }
 
-    auto& first_edges = edges_[current.first].edges_;
-    auto& second_edges = edges_[current.second].edges_;
+    auto& first_edges = edges_[first].edges_;
+    auto& second_edges = edges_[second].edges_;
+    auto& first_weights = edges_[first].weights_;
+    const auto& second_weights = edges_[second].weights_;
 
-    assert(vertex(current.second).combined_with_ == kNullVertex);
-    vertex(current.second).combined_with_ = GetLastCombinedWith(current.first);
+    assert(vertex(second).combined_with_ == kNullVertex);
+    vertex(second).combined_with_ = first;
 
-    for (size_t label = 0; label < kAlphabetSize * 2; ++label) {
-      if (first_edges[label] && second_edges[label] && !Equal(first_edges[label], second_edges[label])) {
-        vertex_to_join.emplace_back(first_edges[label], second_edges[label]);
+    if(prev != kNullVertex) {
+      auto weight_diff = WeightMod(first_weights[Inverse(through)] + vertex(prev).weight(through));
+
+      if (weight_diff) {
+        for(size_t label = 0; label < kAlphabetSize * 2; ++label) {
+          if (label ^ 1) {
+            first_weights[label] -= weight_diff;
+          } else {
+            first_weights[label] += weight_diff;
+          }
+        }
+      }
+    }
+
+    for (auto label = 0u; label < kAlphabetSize * 2; ++label) {
+      if (first_edges[label] && second_edges[label]) {
+        vertex_to_join.emplace_back(first_edges[label], second_edges[label], first, label);
       }
       if (!first_edges[label]) {
         first_edges[label] = second_edges[label] ? GetLastCombinedWith(second_edges[label]) : second_edges[label];
+        assert(!first_weights[label]);
+        first_weights[label] = second_weights[label];
       } else {
         first_edges[label] = GetLastCombinedWith(first_edges[label]);
       }
+      auto weight_diff = WeightMod(first_weights[label] - second_weights[label]);
+      assert(weight_diff == 0 || prev == kNullVertex || label != through);
+      first_weights[label] -= weight_diff;
     }
   }
+
+  assert(FindInconsistentWeights() == kNullVertex);
 }
 
-bool FoldedGraph2::PushCycle(Word w, Vertex s) {
+bool FoldedGraph2::PushCycle(Word w, Vertex s, Weight weight) {
   if (w.Empty()) {
     return false;
   }
@@ -226,65 +309,67 @@ bool FoldedGraph2::PushCycle(Word w, Vertex s) {
 
   Word::size_type existing_prefix_length{}, existing_suffix_length{};
   Vertex prefix_end{}, suffix_begin{};
+  Weight current_weight = 0;
+  Weight suffix_weight = 0;
 
-  std::tie(prefix_end, existing_prefix_length) = ReadWord(w, s);
+  std::tie(suffix_begin, existing_suffix_length, suffix_weight) = ReadInverse(w, s);
+  auto without_suffix = w;
+  without_suffix.PopBack(existing_suffix_length);
 
-  auto after_prefix_word = w;
-  after_prefix_word.PopFront(existing_prefix_length);
+  //now we need to write a word without_suffix from s to suffix_begin
+  std::tie(prefix_end, existing_prefix_length, current_weight) = ReadWord(without_suffix, s);
+  current_weight += suffix_weight;
+  auto new_word = without_suffix;
+  new_word.PopFront(existing_prefix_length);
 
-  if (!after_prefix_word.Empty()) { //if we can't read the whole word
-    std::tie(suffix_begin, existing_suffix_length) = ReadInverse(w, s);
+  if (!new_word.Empty()) { //if we can't read the whole word
+    //we will add new vertices from prefix_end to suffix_begin
+    //first ass a 'stem' if they coinside
 
-    while (existing_suffix_length + 1 < after_prefix_word.size()) {
-      prefix_end = AddEdge(after_prefix_word.GetFront(), prefix_end);
-      after_prefix_word.PopFront();
-    }
-
-    if (existing_suffix_length + 1 == after_prefix_word.size()) {
-      //if we added 1, -1, 1, we probably now have to join (1, -1) and (1)
-      auto current_endpoint = vertex(prefix_end).endpoint(after_prefix_word.GetFront());
-      auto other_side = vertex(suffix_begin).endpoint(Inverse(after_prefix_word.GetFront()));
-      if (current_endpoint == suffix_begin) {
-        assert(other_side == prefix_end);
-        return true;
+    if (prefix_end == suffix_begin) {
+      while(new_word.GetFront() == Inverse(new_word.GetBack())) {
+        prefix_end = AddEdge(new_word.GetFront(), prefix_end);
+        suffix_begin = prefix_end;
+        new_word.PopFront();
+        new_word.PopBack();
       }
-      
-      if (current_endpoint != kNullVertex) {
-        JoinVertices(current_endpoint, suffix_begin);
-      } 
+    }
+    assert(!new_word.Empty()); //it can't be empty, because the word itself should be reduced
 
-      if (other_side != kNullVertex) {
-        JoinVertices(prefix_end, other_side);
-      }
-      
-      AddEdge(after_prefix_word.GetFront(), prefix_end, suffix_begin);
-      return true;
+    while (new_word.size() > 1) {
+      prefix_end = AddEdge(new_word.GetFront(), prefix_end);
+      new_word.PopFront();
     }
-  } else {
-    if (prefix_end == s) {
-      return false;
-    } else {
-      std::tie(suffix_begin, existing_suffix_length) = ReadInverse(w, s);
-    }
+
+    assert(vertex(prefix_end).endpoint(new_word.GetFront()) == kNullVertex);
+    AddEdge(new_word.GetFront(), prefix_end, suffix_begin);
+    assert(edges_[prefix_end].weights_[new_word.GetFront()] == 0);
+    edges_[prefix_end].weights_[new_word.GetFront()] = weight - current_weight;
+    edges_[suffix_begin].weights_[Inverse(new_word.GetFront())] = current_weight - weight;
+    return true;
   }
 
-  /*
-          suffix
-        *--------*
-  0  1  2  3  4  5
-  ^________^
-    prefix
+  if (prefix_end == suffix_begin) {
+    modulus_ = Gcd(std::abs(current_weight - weight), modulus_);
+    return false;
+  }
 
-  trace 0 1 
-  
-  */
+  if (prefix_end > suffix_begin) {
+    std::swap(prefix_end, suffix_begin);
+  }
 
-  assert(w.size() >= existing_suffix_length);
-  auto before_common_length = w.size() - existing_suffix_length;
-  assert(before_common_length <= existing_prefix_length);
+  auto weight_diff = WeightMod(current_weight - weight);
 
-  std::tie(prefix_end, before_common_length) = ReadWord(w, before_common_length, s);
-  assert(prefix_end != suffix_begin);
+  if (weight_diff) {
+    auto& weights = edges_[prefix_end].weights_;
+    for (auto label = 0u; label < 2 * kAlphabetSize; ++label) {
+      if(label ^ 1) {
+        weights[label] -= weight_diff;
+      } else {
+        weights[label] += weight_diff;
+      }
+    }
+  }
 
   JoinVertices(prefix_end, suffix_begin);
   return true;

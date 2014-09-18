@@ -23,7 +23,7 @@ public:
     , letters_(0)
   { }
 
-  explicit CWord(std::initializer_list<unsigned int> letters)
+  CWord(std::initializer_list<unsigned int> letters)
     : size_(0)
     , letters_(0)
   {
@@ -166,10 +166,9 @@ public:
     return !(*this == other);
   }
 
-
   void CyclicLeftShift(size_type shift = 1) {
     shift %= size_;
-    auto left_part = letters_ >> (kLetterShift * (size_ - shift));
+    auto left_part = (letters_ >> (kLetterShift * (size_ - shift)));
     letters_ <<= kLetterShift * shift;
     ZeroUnused();
     letters_ |= left_part;
@@ -179,6 +178,12 @@ public:
     CyclicLeftShift(size_ - shift);
   }
 
+  void CyclicReduce() {
+    while(!Empty() && (GetFront() == (GetBack() ^ 1))) {
+      PopFront();
+      PopBack();
+    }
+  }
 
 private:
   size_type size_;

@@ -43,14 +43,14 @@ FoldedGraph2::Word AlphasToLabels(std::vector<int> alphas) {
 
 TEST(FoldedGraph2, ReadWord) {
   FoldedGraph2 g;
-  EXPECT_EQ(std::make_tuple(1, 0), g.ReadWord(AlphasToLabels({1, 2})));
+  EXPECT_EQ(std::make_tuple(1, 0, 0), g.ReadWord(AlphasToLabels({1, 2})));
 
   EXPECT_EQ(3, g.PushWord(AlphasToLabels({1, 2})));
-  EXPECT_EQ(std::make_tuple(3, 2), g.ReadWord(AlphasToLabels({1, 2})));
-  EXPECT_EQ(std::make_tuple(2, 1), g.ReadWord(AlphasToLabels({1, 1})));
+  EXPECT_EQ(std::make_tuple(3, 2, 0), g.ReadWord(AlphasToLabels({1, 2})));
+  EXPECT_EQ(std::make_tuple(2, 1, 0), g.ReadWord(AlphasToLabels({1, 1})));
 
-  EXPECT_EQ(std::make_tuple(1, 2), g.ReadInverse(AlphasToLabels({1, 2}), 3));
-  EXPECT_EQ(std::make_tuple(2, 1), g.ReadInverse(AlphasToLabels({2, 2}), 3));
+  EXPECT_EQ(std::make_tuple(1, 2, 0), g.ReadInverse(AlphasToLabels({1, 2}), 3));
+  EXPECT_EQ(std::make_tuple(2, 1, 0), g.ReadInverse(AlphasToLabels({2, 2}), 3));
 }
 
 TEST(FoldedGraph2, PushWord) {
@@ -137,8 +137,8 @@ TEST(FoldedGraph2, JoinVertices1) {
   EXPECT_EQ(1, g.vertex(2).endpoint(1));
   EXPECT_EQ(1, g.vertex(2).endpoint(3));
 
-  EXPECT_EQ(std::make_tuple(2, 1), g.ReadWord({0}));
-  EXPECT_EQ(std::make_tuple(2, 1), g.ReadWord({2}));
+  EXPECT_EQ(std::make_tuple(2, 1, 0), g.ReadWord({0}));
+  EXPECT_EQ(std::make_tuple(2, 1, 0), g.ReadWord({2}));
 }
 
 TEST(FoldedGraph2, JoinVertices2) {
@@ -148,18 +148,18 @@ TEST(FoldedGraph2, JoinVertices2) {
   g.JoinVertices(1, 2);
   EXPECT_TRUE(g.Equal(2, 1));
 
-  EXPECT_EQ(std::make_tuple(1, 1), g.ReadWord({0}));
-  EXPECT_EQ(std::make_tuple(1, 0), g.ReadWord({2}));
-  EXPECT_EQ(std::make_tuple(1, 1), g.ReadWord({0, 2}));
-  EXPECT_EQ(std::make_tuple(1, 2), g.ReadWord({0, 0, 2, 0}));
+  EXPECT_EQ(std::make_tuple(1, 1, 0), g.ReadWord({0}));
+  EXPECT_EQ(std::make_tuple(1, 0, 0), g.ReadWord({2}));
+  EXPECT_EQ(std::make_tuple(1, 1, 0), g.ReadWord({0, 2}));
+  EXPECT_EQ(std::make_tuple(1, 2, 0), g.ReadWord({0, 0, 2, 0}));
 }
 
 TEST(FoldedGraph2, PushCycle1) {
   FoldedGraph2 g;
   EXPECT_EQ(true, g.PushCycle({0, 2}));
 
-  EXPECT_EQ(std::make_tuple(1, 2), g.ReadWord({0, 2}));
-  EXPECT_EQ(std::make_tuple(1, 4), g.ReadWord({0, 2, 0, 2}));
+  EXPECT_EQ(std::make_tuple(1, 2, 0), g.ReadWord({0, 2}));
+  EXPECT_EQ(std::make_tuple(1, 4, 0), g.ReadWord({0, 2, 0, 2}));
 }
 
 TEST(FoldedGraph2, PushCycle2) {
@@ -167,26 +167,26 @@ TEST(FoldedGraph2, PushCycle2) {
   EXPECT_EQ(true, g.PushCycle({0, 2, 0}));
   EXPECT_EQ(true, g.PushCycle({0, 0}));
 
-  EXPECT_EQ(std::make_tuple(1, 2), g.ReadWord({0, 0}));
-  EXPECT_EQ(std::make_tuple(1, 3), g.ReadWord({0, 2, 0}));
-  EXPECT_EQ(std::make_tuple(1, 4), g.ReadWord({0, 2, 2, 0}));
-  EXPECT_EQ(std::make_tuple(1, 5), g.ReadWord({0, 2, 2, 2, 0}));
+  EXPECT_EQ(std::make_tuple(1, 2, 0), g.ReadWord({0, 0}));
+  EXPECT_EQ(std::make_tuple(1, 3, 0), g.ReadWord({0, 2, 0}));
+  EXPECT_EQ(std::make_tuple(1, 4, 0), g.ReadWord({0, 2, 2, 0}));
+  EXPECT_EQ(std::make_tuple(1, 5, 0), g.ReadWord({0, 2, 2, 2, 0}));
 }
 
 TEST(FoldedGraph2, PushCycle3) {
   FoldedGraph2 g;
   EXPECT_EQ(true, g.PushCycle({0, 2, 0}));
-  EXPECT_EQ(std::make_tuple(1, 3), g.ReadWord({0, 2, 0}));
+  EXPECT_EQ(std::make_tuple(1, 3, 0), g.ReadWord({0, 2, 0}));
 
   EXPECT_EQ(true, g.PushCycle({0, 2, 0, 2, 0}));
-  EXPECT_EQ(std::make_tuple(1, 2), g.ReadWord({2, 0}));
+  EXPECT_EQ(std::make_tuple(1, 2, 0), g.ReadWord({2, 0}));
 }
 
 TEST(FoldedGraph2, PushCycle4) {
   FoldedGraph2 g;
   EXPECT_EQ(true, g.PushCycle({0, 2, 0}));
   EXPECT_EQ(false, g.PushCycle({0, 2, 0}));
-  EXPECT_EQ(std::make_tuple(1, 3), g.ReadWord({0, 2, 0}));
+  EXPECT_EQ(std::make_tuple(1, 3, 0), g.ReadWord({0, 2, 0}));
 
   EXPECT_EQ(true, g.PushCycle({0, 2}));
   EXPECT_TRUE(g.Equal(1, 2));
@@ -347,7 +347,7 @@ TEST(FoldedGraph2, PushCycleStressRandom) {
       }
 
       g.PushCycle(w);
-      ASSERT_EQ(std::make_tuple(1, length), g.ReadWord(w));
+      ASSERT_EQ(std::make_tuple(1, length, 0), g.ReadWord(w));
     }
   }
 }

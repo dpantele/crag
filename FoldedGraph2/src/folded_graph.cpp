@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <deque>
 #include <limits>
+#include <deque>
 #include <type_traits>
 
 #include "folded_graph2.h"
@@ -416,58 +417,61 @@ std::vector<unsigned int> FoldedGraph2::ComputeDistances(Vertex v) const {
   return distance;
 }
 
-std::vector<Word> FoldedGraph2::Harvest(size_t k, Vertex v1, Vertex v2) const {
-  v1 = GetLastCombinedWith(v1);
-  v2 = GetLastCombinedWith(v2);
-  auto v1_distances = this->ComputeDistances(v1);
-  auto result = Harvest(k, v1, v2, v1_distances);
-  std::sort(result.begin(), result.end());
-  auto last = std::unique(std::make_move_iterator(result.begin()), std::make_move_iterator(result.end()));
-  result.erase(last.base(), result.end());
-
-  return result;
+template<typename Iter>
+bool IsSortedAndUnique(Iter current, Iter end) {
+  if (current == end) {
+    return true;
+  }
+  auto next = std::next(current);
+  while (next != end) {
+    if (!(*current < *next)) {
+      return false;
+    }
+    ++next;
+    ++current;
+  }
+  return true;
 }
 
-std::vector<Word> FoldedGraph2::Harvest(size_t k, Vertex v1, Vertex v2, const std::vector<unsigned int>& v1_distances) const {
-  if (k == 0) {
-    return {};
-  }
-
+std::vector<Word> FoldedGraph2::Harvest(size_t k, Vertex v1, Vertex v2, Weight weight) const {
   v1 = GetLastCombinedWith(v1);
   v2 = GetLastCombinedWith(v2);
-
-  if (k < v1_distances[v2]) {
-    return {};
-  }
-
+  auto v2_distances = this->ComputeDistances(v2);
   std::vector<Word> result;
-
-  for(Label label = 0; label < kAlphabetSize * 2; ++label) {
-    auto endpoint = vertex(v2).endpoint(label);
-
-    if (endpoint == kNullVertex) {
-      continue;
+  std::deque<std::tuple<Vertex, Word, Weight>> current_path = {std::make_tuple(v1, Word{ }, 0)};
+  
+  while (!current_path.empty()) {
+    Vertex v;
+    Word w;
+    Weight c;
+    std::tie(v, w, c) = current_path.front();
+    current_path.pop_front();
+    if (v == v2 && c == weight) {
+      result.push_back(w);
     }
 
-    if (endpoint == v1) {
-      result.emplace_back(Word({Inverse(label)}));
-    } 
-    
-    auto shorter_words = Harvest(k - 1, v1, endpoint, v1_distances);
-    for (const auto& word : shorter_words) {
-      if (word.GetBack() != label) { //don't add words with cancellations
-        result.push_back(word);
-        result.back().PushBack(Inverse(label));
+    auto edges = vertex(v);
+
+    for(auto label = 0u; label < 2 * kAlphabetSize; ++label) {
+      if (!w.Empty() && Inverse(label) == w.GetBack()) {
+        continue;
+      }
+      Vertex n = GetLastCombinedWith(edges.endpoint(label));
+      if (n == kNullVertex) {
+        continue;
+      }
+      if (v2_distances[n] + w.size() < k) {
+        Word next_word = w;
+        next_word.PushBack(label);
+        current_path.emplace_back(n, next_word, c + edges.weight(label));
       }
     }
   }
 
-  if (result.size() == 1) {
-    return result;
-  }
+  assert(IsSortedAndUnique(result.begin(), result.end()));
 
-  //now sort and remove equal
   return result;
 }
+
 
 } //namespace crag

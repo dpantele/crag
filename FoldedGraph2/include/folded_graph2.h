@@ -136,7 +136,7 @@ public:
   void CompleteWith(Word r);
 
   //! Find all word of length up to k which can can be read from v1 to v2
-  std::vector<Word> Harvest(size_t k, Vertex v1, Vertex v2) const;
+  std::vector<Word> Harvest(size_t k, Vertex v1, Vertex v2, Weight w = 0) const;
 
   //! Returns true if vertices are equal
   bool Equal(Vertex v1, Vertex v2);
@@ -175,8 +175,6 @@ public:
   //! Compute distances from the vertices to @ref v
   std::vector<unsigned int> ComputeDistances(Vertex v) const;
 
-  std::vector<Word> Harvest(size_t k, Vertex v1, Vertex v2, const std::vector<unsigned int>& v1_distances) const;
-  
   //! Check that the weight of inverse edges are inverses of each other
   Vertex FindInconsistentWeights() const;
 

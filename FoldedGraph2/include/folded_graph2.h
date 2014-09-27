@@ -1,6 +1,7 @@
 #include <array>
 #include <cassert>
 #include <cstdint>
+#include <iostream>
 #include <set>
 #include <tuple>
 #include <vector>
@@ -159,6 +160,12 @@ public:
     return modulus_;
   }
 
+  size_t size() const {
+    return edges_.size();
+  }
+
+  void PrintAsDot(std::ostream* out) const;
+
  private:
   //! The id of the root
   static const Vertex kRootVertex = 1;
@@ -169,8 +176,8 @@ public:
   std::vector<VertexEdges> edges_; //!< Main graph storage. Cell #i stores info about vertex #i
   Weight modulus_ = 0; //!< Something to make incomparable weigth comparable
 
-  Weight WeightMod(Weight weight) const {
-    return modulus_ ? weight % modulus_ : weight;
+  Weight WeightMod(Weight w) const {
+    return modulus_ == 0 ? w : (((w % modulus_) + modulus_) % modulus_);
   }
 
   //! Return the last vertex in the list of combined vertices
@@ -184,6 +191,9 @@ public:
 
   //! Check that the weight of inverse edges are inverses of each other
   Vertex FindInconsistentWeights() const;
+
+  //! All positively-labeled edges get +shift, all negtively-labeled get -shift
+  void ShiftWeight(Vertex v, Weight shift);
 
 };
 

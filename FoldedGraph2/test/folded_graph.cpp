@@ -1,14 +1,528 @@
 #include "gtest/gtest.h"
 #include "folded_graph2.h"
 
+#include <deque>
+#include <fstream>
+#include <limits>
 #include <map>
 #include <set>
 #include <memory>
 #include <random>
+#include <utility>
 
 namespace crag {
 
 namespace {
+
+using Label = FoldedGraph2::Label;
+using Word = FoldedGraph2::Word;
+using Weight = FoldedGraph2::Weight;
+using Vertex = FoldedGraph2::Vertex;
+
+namespace naive_graph_folding {
+  
+
+Weight Gcd(Weight a, Weight b) {
+  while (b != 0) {
+    auto c = a % b;
+    a = b;
+    b = c;
+  }
+
+  return a;
+}
+
+Label Inverse(Label l) {
+  return l ^ 1;
+}
+
+struct Graph {
+  struct Edge {
+    std::tuple<Label, Vertex, Weight> data_;
+
+    Label label() const {
+      return std::get<0>(data_);
+    }
+
+    Vertex to() const {
+      return std::get<1>(data_);
+    }
+
+    Weight w() const {
+      return std::get<2>(data_);
+    }
+
+    Edge(Label label, Vertex to, Weight w)
+      : data_(label, to, w)
+    { }
+
+    bool operator<(const Edge& other) const {
+      return data_ < other.data_;
+    }
+
+    bool operator==(const Edge& other) const {
+      return data_ == other.data_;
+    }
+
+    std::tuple<Label, Vertex> DropWeight() const {
+      return std::make_tuple(label(), to());
+    }
+  };
+
+  std::vector<std::set<Edge>> edges_;
+
+  static Vertex root() {
+    return 1;
+  }
+
+  Weight modulus_ = 0;
+
+  Weight modulus() const {
+    return modulus_;
+  }
+
+  Graph() {
+    edges_.emplace_back();
+    edges_.emplace_back();
+  }
+
+  void AddEdge(Vertex v1, Vertex v2, Label l, Weight w) {
+    edges_.at(v1).emplace(l, v2, w);
+    edges_.at(v2).emplace(Inverse(l), v1, -w);
+  }
+
+  Vertex PushWord(Word w, Vertex s = 1, Weight weight = 0) {
+    while (!w.Empty()) {
+      Vertex next_id = static_cast<Vertex>(edges_.size());
+      edges_.emplace_back();
+      AddEdge(s, next_id, w.GetFront(), (w.size() == 1 ? weight : 0));
+      s = next_id;
+      w.PopFront();
+    }
+
+    return s;
+  }
+
+  void PushCycle(Word w, Vertex s = 1, Weight weight = 0) {
+    if (w.Empty()) {
+      modulus_ = Gcd(weight, modulus_);
+    }
+
+    auto last = w.GetBack();
+    w.PopBack();
+
+    Vertex n = PushWord(w, s, 0);
+    AddEdge(n, s, last, weight);
+  }
+
+  std::tuple<Vertex, Word::size_type, Weight> ReadWord(Word w, Vertex s = 1) {
+    Word::size_type read_length = 0;
+    Weight current_weight = 0;
+    while (!w.Empty()) {
+      auto edge = edges_.at(s).lower_bound(Edge(w.GetFront(), 0, 0));
+      if (edge == edges_.at(s).end() || edge->label() != w.GetFront()) {
+        return std::make_tuple(s, read_length, current_weight);
+      }
+      auto next = std::next(edge);
+      if (next != edges_.at(s).end() && next->label() == w.GetFront()) {
+        throw std::runtime_error("Graph is not foled - can't traverse unfolded graphs");
+      }
+
+      s = edge->to();
+      ++read_length;
+      current_weight += edge->w();
+      w.PopFront();
+    }
+    return std::make_tuple(s, read_length, WeightMod(current_weight));
+  }
+
+  void ShiftWeight(Vertex v, Weight shift) {
+    std::set<Edge> reweightened_edges_for_v;
+    for (auto&& edge : this->edges_[v]) {
+      if (edge.to() != v) {
+        reweightened_edges_for_v.emplace(edge.label(), edge.to(), edge.w() + shift);
+        edges_.at(edge.to()).emplace(Inverse(edge.label()), v, -edge.w() - shift);
+        auto opposite_count = edges_.at(edge.to()).erase(Edge(Inverse(edge.label()), v, -edge.w()));
+        assert(opposite_count == 1);
+      } else {
+        reweightened_edges_for_v.emplace(edge);
+      }
+    }
+    edges_[v] = reweightened_edges_for_v;
+  }
+
+  bool JoinVertices(Vertex v1, Vertex v2) {
+    static int count = 0;
+    ++count;
+    if (v1 > v2) {
+      std::swap(v1, v2);
+    }
+
+    if (v1 == v2) {
+      return false;
+    }
+
+    auto& v2_edges = edges_[v2];
+
+    //first, process v2 -> v2
+    auto v2_edge = v2_edges.begin();
+    while (v2_edge != v2_edges.end()) {
+      if (v2_edge->to() == v2) {
+        AddEdge(v1, v1, v2_edge->label(), v2_edge->w());
+        v2_edge = v2_edges.erase(v2_edge);
+      } else {
+        ++v2_edge;
+      }
+    }
+
+    for (auto&& edge : v2_edges) {
+      Vertex next = edge.to();
+      assert(next != v2);
+      auto to_change_lower = edges_[next].lower_bound(
+        Edge(Inverse(edge.label()), v2, std::numeric_limits<Weight>::min())
+      );
+
+      auto to_change_upper = edges_[next].upper_bound(
+        Edge(Inverse(edge.label()), v2, std::numeric_limits<Weight>::max())
+      );
+
+      auto to_change = to_change_lower;
+      while (to_change != to_change_upper) {
+        AddEdge(next, v1, to_change->label(), to_change->w());
+        ++to_change;
+      }
+
+      edges_[next].erase(to_change_lower, to_change_upper);
+    }
+    v2_edges.clear();
+
+    return true;
+  }
+
+  void ApplyModulus(Weight new_modulus_div) {
+    modulus_ = Gcd(modulus_, std::abs(new_modulus_div));
+    
+    if (modulus_ == 0) {
+      return;
+    }
+
+    //make all weights in range [0...modulus_)
+
+    for(auto& v_edges : edges_) {
+      std::set<Edge> new_edges;
+      for (auto&& e : v_edges) {
+        auto new_weight = e.w() % modulus_;
+        if (new_weight < 0) {
+          new_weight += modulus_;
+        }
+        new_edges.emplace(e.label(), e.to(), new_weight);
+      }
+      v_edges = std::move(new_edges);
+    }
+  }
+
+  void FoldEdges(Vertex o, Edge e1, Edge e2) {
+    static int count = 0;
+    ++count;
+
+    auto weight_diff = WeightMod(e1.w() - e2.w());
+    if (weight_diff) {
+      if (e1.to() == e2.to()) {
+        ApplyModulus(weight_diff);
+      } else {
+        ShiftWeight(e1.to(), weight_diff);
+      }
+    }
+
+    JoinVertices(e1.to(), e2.to());
+  }
+
+
+  void Fold() {
+    bool progress = false;
+    auto count = 0u;
+    do {
+      progress = false;
+      for (auto v1 = 1u; v1 < edges_.size(); ++v1) {
+        if (edges_[v1].size() < 2) {
+          continue;
+        }
+
+        auto c_edge = edges_[v1].begin();
+        auto n_edge = std::next(c_edge);
+
+        while (n_edge != edges_[v1].end()) {
+          if (c_edge->label() == n_edge->label()) {
+            progress = true;
+            FoldEdges(v1, *c_edge, *n_edge);
+            break;
+          }         
+          ++c_edge, ++n_edge;
+        }
+        if (progress) {
+          break;
+        }
+      }
+    } while(progress);
+  }
+
+  Weight WeightMod(Weight w) const {
+    return modulus_ == 0 ? w : (((w % modulus_) + modulus_) % modulus_);
+  }
+
+  void Harvest(size_t k, Vertex v1, Vertex v2, Weight weight, std::vector<Word>* result) const {
+    std::deque<std::tuple<Vertex, Word, Weight>> current_path = {std::make_tuple(v1, Word{ }, 0)};
+  
+    while (!current_path.empty()) {
+      Vertex v;
+      Word w;
+      Weight c;
+      std::tie(v, w, c) = current_path.front();
+      current_path.pop_front();
+      if (v == v2 && WeightMod(c - weight) == 0) {
+        result->push_back(w);
+      }
+
+      if (w.size() >= k) {
+        continue;
+      }
+
+      for(auto&& edge : edges_[v]) {
+        if (!w.Empty() && w.GetBack() == Inverse(edge.label())) {
+          continue;
+        }
+        Word next_word = w;
+        next_word.PushBack(edge.label());
+        current_path.emplace_back(edge.to(), next_word, c + edge.w());
+      }
+    }
+  }
+
+  std::vector<Word> Harvest(size_t k, Vertex v1, Vertex v2, Weight weight = 0) const {
+    std::vector<Word> result;
+    Harvest(k, v1, v2, weight, &result);
+    std::sort(result.begin(), result.end());
+    auto unique_end = std::unique(result.begin(), result.end());
+    result.erase(unique_end, result.end());
+    return result;
+  }
+
+  std::vector<Word> Harvest(size_t k, Weight w) const {
+    std::vector<Word> result;
+    for(auto v = 1u; v < edges_.size(); ++v) {
+      Harvest(k, v, v, w, &result);
+    }
+    std::sort(result.begin(), result.end());
+    auto unique_end = std::unique(result.begin(), result.end());
+    result.erase(unique_end, result.end());
+    return result;
+  }
+
+  void PrintAsDot(std::ostream* out) const {
+  (*out) << "digraph {\n  edge [arrowtail=dot,arrowhead=vee,arrowsize=0.5];\n  1 [color=blue];\n";
+  int i = -1;
+  for (auto&& vertex : edges_) {
+    ++i;
+    if (i == 0) {
+      continue;
+    }
+    if (vertex.empty()) {
+      continue;
+    }
+    for (auto&& edge : vertex) {
+      (*out) << i << " -> " << edge.to()
+        << " [label=\"" 
+        << (edge.label() % 2 ? "-" : "") << static_cast<char>('x' + static_cast<char>(edge.label() / 2)) << ";"
+        << edge.w() << "\"];\n";
+    }
+  }
+
+  (*out) << "}";
+}
+
+};
+
+TEST(NaiveGraphFolding, Harvest1) {
+  Graph g;
+  g.PushCycle(Word("xxyx"));
+  g.PushCycle(Word("xyyX"));
+  g.Fold();
+
+  auto words = g.Harvest(10, 1, 4);
+
+  std::vector<Word> correct = {
+    { 1 },
+    { 0, 0, 2 },
+    { 0, 2, 2, 0, 2 },
+    { 0, 2, 2, 1, 1 },
+    { 0, 3, 3, 0, 2 },
+    { 0, 3, 3, 1, 1 },
+    { 1, 3, 1, 1, 1 },
+    { 0, 0, 2, 0, 0, 0, 2 },
+    { 0, 2, 2, 2, 2, 0, 2 },
+    { 0, 2, 2, 2, 2, 1, 1 },
+    { 0, 3, 3, 3, 3, 0, 2 },
+    { 0, 3, 3, 3, 3, 1, 1 },
+    { 1, 3, 1, 2, 2, 0, 2 },
+    { 1, 3, 1, 2, 2, 1, 1 },
+    { 1, 3, 1, 3, 3, 0, 2 },
+    { 1, 3, 1, 3, 3, 1, 1 },
+    { 0, 0, 2, 0, 0, 2, 2, 0, 2 },
+    { 0, 0, 2, 0, 0, 2, 2, 1, 1 },
+    { 0, 0, 2, 0, 0, 3, 3, 0, 2 },
+    { 0, 0, 2, 0, 0, 3, 3, 1, 1 },
+    { 0, 2, 2, 0, 2, 0, 0, 0, 2 },
+    { 0, 2, 2, 1, 1, 3, 1, 1, 1 },
+    { 0, 2, 2, 2, 2, 2, 2, 0, 2 },
+    { 0, 2, 2, 2, 2, 2, 2, 1, 1 },
+    { 0, 3, 3, 0, 2, 0, 0, 0, 2 },
+    { 0, 3, 3, 1, 1, 3, 1, 1, 1 },
+    { 0, 3, 3, 3, 3, 3, 3, 0, 2 },
+    { 0, 3, 3, 3, 3, 3, 3, 1, 1 },
+    { 1, 3, 1, 1, 1, 3, 1, 1, 1 },
+    { 1, 3, 1, 2, 2, 2, 2, 0, 2 },
+    { 1, 3, 1, 2, 2, 2, 2, 1, 1 },
+    { 1, 3, 1, 3, 3, 3, 3, 0, 2 },
+    { 1, 3, 1, 3, 3, 3, 3, 1, 1 }
+  };
+
+  EXPECT_EQ(correct, words);
+}
+
+TEST(NaiveGraphFolding, HarvestWeight4) {
+  FoldedGraph2::Word first("xxY");
+  FoldedGraph2::Word second("y");
+
+  Graph g;
+  g.PushCycle(first, 1, 1);
+  g.PushCycle(second, 1, 0);
+  g.Fold();
+
+  EXPECT_EQ(0, g.modulus());
+  EXPECT_EQ(std::make_tuple(g.root(), first.size(), 1), g.ReadWord(first));
+  EXPECT_EQ(std::make_tuple(g.root(), second.size(), 0), g.ReadWord(second));
+
+  using Word = FoldedGraph2::Word;
+  EXPECT_EQ(std::vector<FoldedGraph2::Word>({
+      Word("xx"),
+      Word("xxy"),
+      Word("xxY"),
+      Word("yxx"),
+      Word("Yxx"),
+      Word("xxyy"),
+      Word("xxYY"),
+      Word("yxxy"),
+      Word("yxxY"),
+      Word("yyxx"),
+      Word("Yxxy"),
+      Word("YxxY"),
+      Word("YYxx"), 
+    }),
+    g.Harvest(4, g.root(), g.root(), 1)
+  );
+
+}
+
+
+} //namespace naive_graph_folding
+
+struct Cycle : public std::pair<Word, Weight> {
+  Cycle(const char* word, Weight weight)
+    : std::pair<Word, Weight>(Word(word), weight)
+  { }
+};
+
+std::ostream& operator<<(std::ostream& out, const Cycle& c) {
+  return out << "{ " << c.first << " , " << c.second <<" }";
+}
+
+typedef std::pair<std::vector<Cycle>, Weight> PushReadCyclesParam;
+class GraphsPushReadCycles : public ::testing::TestWithParam<PushReadCyclesParam> { };
+
+naive_graph_folding::Graph GetNaive(const std::vector<Cycle>& cycles) {
+  naive_graph_folding::Graph g;
+  for(auto&& cycle : cycles) {
+    g.PushCycle(cycle.first, g.root(), cycle.second);
+  }
+  g.PrintAsDot(&std::ofstream("g-" + std::to_string(0) + ".dot")); 
+  g.Fold();
+  return g;
+}
+
+TEST_P(GraphsPushReadCycles, NaivePushRead) {
+  static int test_num = 0;
+  ++test_num;
+  auto g = GetNaive(GetParam().first);
+
+  g.PrintAsDot(&std::ofstream("g-" + std::to_string(test_num) + ".dot")); 
+
+  EXPECT_EQ(GetParam().second, g.modulus());
+  for(auto&& cycle : GetParam().first) {
+    if (g.modulus() != 1) {
+      EXPECT_EQ(std::make_tuple(g.root(), cycle.first.size(), cycle.second), g.ReadWord(cycle.first));
+    } else {
+      EXPECT_EQ(std::make_tuple(g.root(), cycle.first.size(), 0), g.ReadWord(cycle.first));
+    }
+  }
+}
+
+FoldedGraph2 GetFolded(const std::vector<Cycle>& cycles) {
+  FoldedGraph2 g;
+  for(auto&& cycle : cycles) {
+    g.PushCycle(cycle.first, g.root(), cycle.second);
+  }
+
+  return g;
+}
+
+TEST_P(GraphsPushReadCycles, FoldedGraph2PushRead) {
+  auto g = GetFolded(GetParam().first);
+
+  EXPECT_EQ(GetParam().second, g.modulus());
+  for(auto&& cycle : GetParam().first) {
+    if (g.modulus() != 1) {
+      EXPECT_EQ(std::make_tuple(g.root(), cycle.first.size(), cycle.second), g.ReadWord(cycle.first));
+    } else {
+      EXPECT_EQ(std::make_tuple(g.root(), cycle.first.size(), 0), g.ReadWord(cycle.first));
+    }
+  }
+}
+
+TEST_P(GraphsPushReadCycles, CompareRootHarvest) {
+  auto g_folded = GetFolded(GetParam().first);
+  auto g_naive = GetNaive(GetParam().first);
+
+  auto max_length = 0u;
+  for (auto& cycle : GetParam().first) {
+    max_length = std::max(max_length, cycle.first.size());
+  }
+
+  if (max_length > 15) {
+    max_length = 15;
+  }
+
+  auto folded_harvest = g_folded.Harvest(max_length, 1, 1, 1);
+  auto naive_harvest = g_naive.Harvest(max_length, 1, 1, 1);
+
+  EXPECT_EQ(naive_harvest, folded_harvest);
+}
+
+PushReadCyclesParam push_read_cycles_params[] = {
+    {{{"xyxYXY", 1}, {"X", 0}}, 0},
+    {{{"xyxYXY", 1}, {"x", 0}}, 0},
+    {{{"xyxYXY", 1}, {"y", 0}}, 0},
+    {{{"xxY", 1}, {"y", 0}}, 0},
+    {{{"xyxYXY", 1}, {"yy", 0}}, 0},
+    {{{"x", 1}, {"X", 0}}, 1},
+    {{{"Yx", 1}, {"XyxxYxY", 0}, {"yX", 0}}, 1},
+    {{{"yXY", 1}, {"YYXYXyyyx", 0}, {"XXY", 0}}, 0},
+    //{{{"", 1}, {"", 0}}, 0},
+    //{{{"", 1}, {"", 0}}, 0},
+};
+
+INSTANTIATE_TEST_CASE_P(Examples, GraphsPushReadCycles, ::testing::ValuesIn(push_read_cycles_params));
+
+
 
 TEST(FoldedGraph2, Trivial) {
   FoldedGraph2 g;
@@ -186,6 +700,7 @@ TEST(FoldedGraph2, PushCycle4) {
   FoldedGraph2 g;
   EXPECT_EQ(true, g.PushCycle({0, 2, 0}));
   EXPECT_EQ(false, g.PushCycle({0, 2, 0}));
+
   EXPECT_EQ(std::make_tuple(1, 3, 0), g.ReadWord({0, 2, 0}));
 
   EXPECT_EQ(true, g.PushCycle({0, 2}));
@@ -204,47 +719,6 @@ TEST(FoldedGraph2, PushCycle6) {
   EXPECT_EQ(true, g.PushCycle({1, 1}));
 }
 
-
-//struct AWord {
-//
-//  const unsigned int kMaxLength;
-//  FoldedGraph2::Word word_;
-//  unsigned long state_;
-//  unsigned long current_mask_;
-//  bool in_initial_ = true;
-//
-//  AWord(unsigned int kMaxLength)
-//    : kMaxLength(kMaxLength)
-//    , word_({0, 0})
-//    , state_(0)
-//    , current_mask_(15)
-//  { }
-//
-//  void next() {
-//    ++state_;
-//    in_initial_ = false;
-//    if ((state_ & current_mask_) == 0) {
-//      state_ = 0;
-//      current_mask_ <<= 1;
-//      current_mask_ ^= 1;
-//      word_.emplace_back();
-//      if (word_.size() > kMaxLength) {
-//        word_ = {0, 0};
-//        current_mask_ = 15;
-//        in_initial_ = true;
-//      }
-//    }
-//
-//    for (size_t i = 0; i < word_.size() * 2; i += 2) {
-//      unsigned char symbol = (state_ & (3 << i)) >> i;
-//      if (symbol % 2 == 1) {
-//        word_[i / 2] = -symbol / 2 - 1;
-//      } else {
-//        word_[i / 2] = symbol / 2 + 1;
-//      }
-//    }
-//  }
-//};
 
 TEST(FoldedGraph2, Harvest1) {
   FoldedGraph2 g;
@@ -292,39 +766,196 @@ TEST(FoldedGraph2, Harvest1) {
   EXPECT_EQ(correct, words);
 }
 
-//TEST(FoldedGraph2, PushCycleStress) {
-//#ifdef NDEBUG
-//  const unsigned int kMaxLength = 4;
-//  const unsigned int kWordsNum = 3;
-//#else
-//  const unsigned int kMaxLength = 5;
-//  const unsigned int kWordsNum = 2;
-//#endif
-//
-//  std::vector<AWord> words;
-//  words.reserve(kWordsNum);
-//  for (size_t i = 0; i < kWordsNum; ++i) {
-//    words.emplace_back(kMaxLength);
-//  }
-//
-//  words.back().next();
-//
-//  while (!words.back().in_initial_) {
-//    for (auto& word : words) {
-//      word.next();
-//      if (!word.in_initial_) {
-//        break;
-//      }
-//    }
-//
-//    FoldedGraph2 g;
-//
-//    for (auto& word : words) {
-//      g.PushCycle(word.word_);
-//      ASSERT_EQ(std::make_tuple(1, word.word_.size()), g.ReadWord(word.word_));
-//    }
-//  }
-//}
+TEST(FoldedGraph2, PushWithWeight1) {
+  FoldedGraph2::Word first("xyxYXY");
+  FoldedGraph2::Word second("X");
+
+  FoldedGraph2 g;
+  g.PushCycle(first, g.root(), 1);
+  g.PushCycle(second, g.root(), 0);
+
+  EXPECT_EQ(0, g.modulus());
+  EXPECT_EQ(std::make_tuple(g.root(), first.size(), 1), g.ReadWord(first));
+  EXPECT_EQ(std::make_tuple(g.root(), second.size(), 0), g.ReadWord(second));
+}
+
+TEST(FoldedGraph2, PushWithWeight2) {
+  FoldedGraph2::Word first("xyxYXY");
+  FoldedGraph2::Word second("x");
+
+  FoldedGraph2 g;
+  g.PushCycle(first, g.root(), 1);
+  g.PushCycle(second, g.root(), 0);
+
+  EXPECT_EQ(0, g.modulus());
+  EXPECT_EQ(std::make_tuple(g.root(), first.size(), 1), g.ReadWord(first));
+  EXPECT_EQ(std::make_tuple(g.root(), second.size(), 0), g.ReadWord(second));
+}
+
+TEST(FoldedGraph2, PushWithWeight3) {
+  FoldedGraph2::Word first("xyxYXY");
+  FoldedGraph2::Word second("y");
+
+  FoldedGraph2 g;
+  g.PushCycle(first, g.root(), 1);
+  g.PushCycle(second, g.root(), 0);
+
+  EXPECT_EQ(0, g.modulus());
+  EXPECT_EQ(std::make_tuple(g.root(), first.size(), 1), g.ReadWord(first));
+  EXPECT_EQ(std::make_tuple(g.root(), second.size(), 0), g.ReadWord(second));
+}
+
+TEST(FoldedGraph2, HarvestWeight4) {
+  FoldedGraph2::Word first("xxY");
+  FoldedGraph2::Word second("y");
+
+  FoldedGraph2 g;
+  g.PushCycle(first, g.root(), 1);
+  g.PushCycle(second, g.root(), 0);
+
+  EXPECT_EQ(0, g.modulus());
+  EXPECT_EQ(std::make_tuple(g.root(), first.size(), 1), g.ReadWord(first));
+  EXPECT_EQ(std::make_tuple(g.root(), second.size(), 0), g.ReadWord(second));
+
+  using Word = FoldedGraph2::Word;
+  EXPECT_EQ(std::vector<FoldedGraph2::Word>({
+      Word("xx"),
+      Word("xxy"),
+      Word("xxY"),
+      Word("yxx"),
+      Word("Yxx"),
+      Word("xxyy"),
+      Word("xxYY"),
+      Word("yxxy"),
+      Word("yxxY"),
+      Word("yyxx"),
+      Word("Yxxy"),
+      Word("YxxY"),
+      Word("YYxx"), 
+    }),
+    g.Harvest(4, g.root(), g.root(), 1)
+  );
+
+}
+
+TEST(FoldedGraph2, HarvestWeight5) {
+  FoldedGraph2::Word first("xxY");
+  FoldedGraph2::Word second("y");
+
+  FoldedGraph2 g;
+  g.PushCycle(first, g.root(), 1);
+  g.PushCycle(second, 3, 0);
+
+  EXPECT_EQ(0, g.modulus());
+  EXPECT_EQ(std::make_tuple(g.root(), first.size(), 1), g.ReadWord(first));
+  EXPECT_EQ(std::make_tuple(g.root(), second.size(), 0), g.ReadWord(second, 3));
+
+  using Word = FoldedGraph2::Word;
+
+  EXPECT_EQ(0, g.modulus());
+  EXPECT_EQ(std::vector<Word>({
+      Word("xx"),
+      Word("xxy"),
+      Word("xxY"),
+      Word("yxx"),
+      Word("Yxx"),
+      Word("xxyy"),
+      Word("xxYY"),
+      Word("yxxy"),
+      Word("yxxY"),
+      Word("yyxx"),
+      Word("Yxxy"),
+      Word("YxxY"),
+      Word("YYxx"), 
+    }),
+    g.Harvest(4, g.root(), g.root(), 1)
+  );
+}
+
+TEST(FoldedGraph2, HarvestWeight6) {
+  FoldedGraph2::Word first("xyxYXY");
+  FoldedGraph2::Word second("yy");
+
+  FoldedGraph2 g;
+  g.PushCycle(first, g.root(), 1);
+  g.PushCycle(second, g.root(), 0);
+
+  EXPECT_EQ(0, g.modulus());
+  EXPECT_EQ(std::make_tuple(g.root(), first.size(), 1), g.ReadWord(first));
+  EXPECT_EQ(std::make_tuple(g.root(), second.size(), 0), g.ReadWord(second));
+
+  using Word = FoldedGraph2::Word;
+  EXPECT_EQ(std::vector<Word>({
+      Word("xyxYXy"),
+      Word("xyxYXY"),
+    }),
+    g.Harvest(6, g.root(), g.root(), 1)
+  );
+}
+
+TEST(FoldedGraph2, PushWithWeight7) {
+  FoldedGraph2::Word first("x");
+  FoldedGraph2::Word second("X");
+
+  FoldedGraph2 g;
+  g.PushCycle(first, g.root(), 1);
+  g.PushCycle(second, g.root(), 0);
+
+  EXPECT_EQ(1, g.modulus());
+  EXPECT_EQ(std::make_tuple(g.root(), first.size(), 0), g.ReadWord(first));
+  EXPECT_EQ(std::make_tuple(g.root(), second.size(), 0), g.ReadWord(second));
+}
+
+
+TEST(FoldedGraph2, PushWithWeight8) {
+  FoldedGraph2::Word first("Yx");
+  FoldedGraph2::Word second("XyxxYxY");
+  FoldedGraph2::Word third("yX");
+
+  FoldedGraph2 g;
+  g.PushCycle(first, g.root(), 1);
+  g.PushCycle(second, g.root(), 0);
+  g.PushCycle(third, g.root(), 0);
+
+  EXPECT_EQ(1, g.modulus());
+  EXPECT_EQ(std::make_tuple(g.root(), first.size(), 0), g.ReadWord(first));
+  EXPECT_EQ(std::make_tuple(g.root(), second.size(), 0), g.ReadWord(second));
+  EXPECT_EQ(std::make_tuple(g.root(), third.size(), 0), g.ReadWord(third));
+}
+
+TEST(FoldedGraph2, PushWithWeight9) {
+  FoldedGraph2::Word first("yXY");
+  FoldedGraph2::Word second("YYXYXyyyx");
+  FoldedGraph2::Word third("XXY");
+
+  FoldedGraph2 g;
+  g.PushCycle(first, g.root(), 1);
+  g.PushCycle(second, g.root(), 0);
+  g.PushCycle(third, g.root(), 0);
+
+  EXPECT_EQ(1, g.modulus());
+  EXPECT_EQ(std::make_tuple(g.root(), first.size(), 0), g.ReadWord(first));
+  EXPECT_EQ(std::make_tuple(g.root(), second.size(), 0), g.ReadWord(second));
+  EXPECT_EQ(std::make_tuple(g.root(), third.size(), 0), g.ReadWord(third));
+}
+
+TEST(FoldedGraph2, PushWithWeight10) {
+  FoldedGraph2::Word first("xxyXYY");
+  FoldedGraph2::Word second("XY");
+  FoldedGraph2::Word third("xyxyx");
+
+  FoldedGraph2 g;
+  g.PushCycle(first, g.root(), 1);
+  g.PushCycle(second, g.root(), 0);
+  g.PushCycle(third, g.root(), 0);
+
+  EXPECT_EQ(2, g.modulus());
+  EXPECT_EQ(std::make_tuple(g.root(), first.size(), 1), g.ReadWord(first));
+  EXPECT_EQ(std::make_tuple(g.root(), second.size(), 0), g.ReadWord(second));
+  EXPECT_EQ(std::make_tuple(g.root(), third.size(), 0), g.ReadWord(third));
+}
+
+
 
 TEST(FoldedGraph2, PushCycleStressRandom) {
 #ifndef NDEBUG
@@ -352,6 +983,54 @@ TEST(FoldedGraph2, PushCycleStressRandom) {
   }
 }
 
+TEST(FoldedGraph2, PushCycleWithWeightStressRandom) {
+#ifndef NDEBUG
+  static const unsigned int kRepeat = 100000;
+#else
+  static const unsigned int kRepeat = 1000000;
+#endif
+  static const unsigned int kWords = 3;
+  std::mt19937_64 engine;
+  std::uniform_int_distribution<> random_letter(0, 3);
+  std::uniform_int_distribution<size_t> random_length(2, 10);
+
+
+  for (auto i = 0u; i < kRepeat; ++i) {
+    std::cout << "== " << i << " ==========================" << std::endl;
+    std::vector<FoldedGraph2::Word> words;
+    FoldedGraph2 g;
+    for (auto j = 0u; j < kWords; ++j) {
+      FoldedGraph2::Word w;
+      size_t length = random_length(engine);
+      while(w.size() < length) {
+        w.PushBack(random_letter(engine));
+      }
+
+      std::cout << w << std::endl;
+
+      words.push_back(w);
+
+      g.PushCycle(w, g.root(), (j == 0 ? 1 : 0));
+      ASSERT_EQ(std::make_tuple(1, length, (j == 0 ? 1 : 0)), g.ReadWord(w));
+    }
+
+    if (g.modulus() != 1) {
+      bool first = true;
+      for (auto&& w : words) {
+        auto res = g.ReadWord(w);
+        if (std::get<2>(res) < 0) {
+          std::get<2>(res) += g.modulus();
+        } 
+        ASSERT_EQ(std::make_tuple(1, w.size(), first ? 1 : 0), res)
+          << "Pushed " << ::testing::PrintToString(words) << ", fail on " << w
+          << ", graph mod is " << g.modulus();
+        first = false;
+      }
+    }
+  }
+
+
+}
 
 
 } //namespace

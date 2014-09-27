@@ -9,7 +9,6 @@
 namespace crag {
 
 class CWord;
-inline void PrintTo(CWord w, ::std::ostream* os);
 
 //! Stores word of lenght up to 16
 class CWord {
@@ -63,6 +62,32 @@ public:
       }
     }
   }
+
+  explicit CWord(const char* letters) 
+    : size_(0)
+    , letters_(0)
+  {
+    for (; *letters != 0; ++letters) {
+      auto sym = *letters;
+      switch (sym) {
+        case 'x':
+          PushBack(0);
+          break;
+        case 'X':
+          PushBack(1);
+          break;
+        case 'y':
+          PushBack(2);
+          break;
+        case 'Y':
+          PushBack(3);
+          break;
+        default:
+          throw std::runtime_error("Only x, y, X, Y are allowed to be passed to CWord constructor");
+      }
+    }
+  }
+
 
   bool Empty() const {
     return size_ == 0;
@@ -205,12 +230,18 @@ public:
   
 };
 
-inline void PrintTo(CWord w, ::std::ostream* os) {
+inline void PrintTo(const CWord& w1, ::std::ostream* os) {
+  auto w = w1;
   *os << w.size() << ": ";
   while (!w.Empty()) {
     *os << static_cast<char>((w.GetFront() % 2 ? 'X' : 'x') + w.GetFront() / 2);
     w.PopFront();
   }
+}
+
+inline std::ostream& operator<<(std::ostream& out, const CWord& w) {
+  PrintTo(w, &out);
+  return out;
 }
 
 

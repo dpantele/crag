@@ -1,7 +1,9 @@
 #include <algorithm>
 #include <deque>
+#include <fstream>
 #include <limits>
 #include <deque>
+#include <string>
 #include <type_traits>
 
 #include "folded_graph2.h"
@@ -58,7 +60,7 @@ std::tuple<Vertex, Word::size_type, Weight> FoldedGraph2::ReadWord(Word w, Word:
     auto next = GetLastCombinedWith(vertex(s).endpoint(w.GetFront()));
     cur_weight += vertex(s).weight(w.GetFront());
     if (next) {
-      assert(vertex(s).weight(w.GetFront()) == -vertex(next).weight(Inverse(w.GetFront())));
+      assert(WeightMod(vertex(s).weight(w.GetFront()) + vertex(next).weight(Inverse(w.GetFront()))) == 0);
       s = next;
     } else {
       return std::make_tuple(s, i, WeightMod(cur_weight));
@@ -211,7 +213,7 @@ Vertex FoldedGraph2::FindInconsistentWeights() const {
 
     for (auto label = 0u; label < 2 * kAlphabetSize; ++label) {
       auto& neigbour = edges_[GetLastCombinedWith(vertex.endpoint(label))];
-      if (!WeightMod(vertex.weight(label) + neigbour.weight(label))) {
+      if (WeightMod(vertex.weight(label) + neigbour.weight(Inverse(label)))) {
         return GetLastCombinedWith(neigbour.endpoint(Inverse(label)));
       }
     }
@@ -237,7 +239,13 @@ void FoldedGraph2::JoinVertices(Vertex v1, Vertex v2) {
   }
 
   std::deque<std::tuple<Vertex, Vertex, Vertex, Label>> vertex_to_join = {std::make_tuple(v1, v2, kNullVertex, 0)};
+  auto step = 0u;
   while (!vertex_to_join.empty()) {
+    ++step;
+    std::ofstream out("join-" + std::to_string(step) + ".dot");
+    this->PrintAsDot(&out);
+    out.close();
+
     Vertex first, second, prev;
     Label through;
 
@@ -250,7 +258,11 @@ void FoldedGraph2::JoinVertices(Vertex v1, Vertex v2) {
 
     if (first == second) {
       for(auto label = 0u; label < kAlphabetSize * 2; ++label) {
-        modulus_ = Gcd(std::abs(vertex(prev).weight(label) + vertex(first).weight(Inverse(label))), modulus_);
+        auto n = vertex(first).endpoint(label);
+        if (n) {
+          assert(vertex(n).endpoint(Inverse(label)));
+          modulus_ = Gcd(std::abs(vertex(first).weight(label) + vertex(n).weight(Inverse(label))), modulus_);
+        }
       }
       continue;
     }
@@ -264,27 +276,33 @@ void FoldedGraph2::JoinVertices(Vertex v1, Vertex v2) {
     auto& first_weights = edges_[first].weights_;
     const auto& second_weights = edges_[second].weights_;
 
-    assert(vertex(second).combined_with_ == kNullVertex);
-    vertex(second).combined_with_ = first;
-
-    if(prev != kNullVertex) {
-      auto weight_diff = WeightMod(first_weights[Inverse(through)] + vertex(prev).weight(through));
-
-      if (weight_diff) {
-        for(size_t label = 0; label < kAlphabetSize * 2; ++label) {
-          if (label ^ 1) {
-            first_weights[label] -= weight_diff;
-          } else {
-            first_weights[label] += weight_diff;
-          }
-        }
-      }
-    }
-
     for (auto label = 0u; label < kAlphabetSize * 2; ++label) {
       if (first_edges[label] && second_edges[label]) {
         vertex_to_join.emplace_back(first_edges[label], second_edges[label], first, label);
+
+        auto weight_diff = WeightMod(first_weights[label] - second_weights[label]); //eps
+        //if (label & 1) {
+          // x --(-l, w)--> a
+          // y --(-l, v)--> b
+          // want to make w - eps = w - w + v = v
+          // hence weight(-l) should be decreased by eps
+          // hence weight(l) should be increased by eps
+          this->ShiftWeight(first_edges[label], weight_diff);
+        //} else {
+          // x --( l, w)--> a
+          // y --( l, v)--> b
+          // want to make w - eps = w - w + v = v
+          // hence weight(l) should be decreased by eps
+          // hence weight(-l) should be increased by eps
+        //  this->ShiftWeight(first_edges[label], weight_diff);
+        //} 
       }
+    }
+
+    assert(vertex(second).combined_with_ == kNullVertex);
+    vertex(second).combined_with_ = first;
+
+    for (auto label = 0u; label < kAlphabetSize * 2; ++label) {
       if (!first_edges[label]) {
         first_edges[label] = second_edges[label] ? GetLastCombinedWith(second_edges[label]) : second_edges[label];
         assert(!first_weights[label]);
@@ -292,11 +310,18 @@ void FoldedGraph2::JoinVertices(Vertex v1, Vertex v2) {
       } else {
         first_edges[label] = GetLastCombinedWith(first_edges[label]);
       }
-      auto weight_diff = WeightMod(first_weights[label] - second_weights[label]);
-      assert(weight_diff == 0 || prev == kNullVertex || label != through);
-      first_weights[label] -= weight_diff;
+
+      if (second_edges[label]) {
+        assert(first_edges[label]);
+        modulus_ = Gcd(std::abs(first_weights[label] - second_weights[label]), modulus_);
+      }
     }
   }
+
+  ++step;
+  std::ofstream out("join-" + std::to_string(step) + ".dot");
+  this->PrintAsDot(&out);
+  out.close();
 
   assert(FindInconsistentWeights() == kNullVertex);
 }
@@ -325,7 +350,7 @@ bool FoldedGraph2::PushCycle(Word w, Vertex s, Weight weight) {
 
   if (!new_word.Empty()) { //if we can't read the whole word
     //we will add new vertices from prefix_end to suffix_begin
-    //first ass a 'stem' if they coinside
+    //first add a 'stem' if they coinside
 
     if (prefix_end == suffix_begin) {
       while(new_word.GetFront() == Inverse(new_word.GetBack())) {
@@ -355,22 +380,28 @@ bool FoldedGraph2::PushCycle(Word w, Vertex s, Weight weight) {
     return false;
   }
 
-  if (prefix_end > suffix_begin) {
-    std::swap(prefix_end, suffix_begin);
-  }
+  std::ofstream out("compl.dot");
+  this->PrintAsDot(&out);
+  out.close();
 
-  auto weight_diff = WeightMod(current_weight - weight);
+  auto weight_diff = WeightMod(weight - current_weight); // = eps
+  //current weight should be increased by eps
 
-  if (weight_diff) {
-    auto& weights = edges_[prefix_end].weights_;
-    for (auto label = 0u; label < 2 * kAlphabetSize; ++label) {
-      if(label ^ 1) {
-        weights[label] -= weight_diff;
-      } else {
-        weights[label] += weight_diff;
-      }
-    }
-  }
+  //if (weight_diff) {
+  //  if (without_suffix.GetBack() & 1) {
+      //a --(-l)-> b  
+      //b --( l)-> a
+      //weight of l should be decreased by w
+      //weight of prefix_end should be shifted by +eps
+      this->ShiftWeight(prefix_end, -weight_diff);
+  //  } else {
+      //a --( l)-> b
+      //b --(-l)-> a
+      //weight of l should be decreased by w
+      //weight of prefix_end should be shifted by +eps
+  //    this->ShiftWeight(prefix_end, -weight_diff);
+  //  }
+  //}
 
   JoinVertices(prefix_end, suffix_begin);
   return true;
@@ -452,11 +483,11 @@ void FoldedGraph2::Harvest(size_t k, Vertex v1, Vertex v2, Weight weight, std::v
     Weight c;
     std::tie(v, w, c) = current_path.front();
     current_path.pop_front();
-    if (v == v2 && c == weight) {
+    if (v == v2 && WeightMod(c - weight) == 0) {
       result->push_back(w);
     }
 
-    auto edges = vertex(v);
+    auto& edges = vertex(v);
 
     for(auto label = 0u; label < 2 * kAlphabetSize; ++label) {
       if (!w.Empty() && Inverse(label) == w.GetBack()) {
@@ -479,7 +510,7 @@ void FoldedGraph2::Harvest(size_t k, Vertex v1, Vertex v2, Weight weight, std::v
 
 std::vector<Word> FoldedGraph2::Harvest(size_t k, Weight w) const {
   std::vector<Word> result;
-  for(auto v  = 0u; v < edges_.size(); ++v) {
+  for(auto v = root(); v < edges_.size(); ++v) {
     if(vertex(v).combined_with_) {
       continue;
     }
@@ -492,6 +523,54 @@ std::vector<Word> FoldedGraph2::Harvest(size_t k, Weight w) const {
   auto unique_end = std::unique(result.begin(), result.end());
   result.erase(unique_end, result.end());
   return result;
+}
+
+void FoldedGraph2::PrintAsDot(std::ostream* out) const {
+  //\n  node [shape = point];
+  (*out) << "digraph {\n  edge [arrowtail=dot,arrowhead=vee,arrowsize=0.5];\n  1 [color=blue];\n";
+  int i = -1;
+  for (auto&& vertex : edges_) {
+    ++i;
+    if (i == 0) {
+      continue;
+    }
+    if (vertex.combined_with_) {
+      continue;
+    }
+    for (auto label = 0u; label < 2 * kAlphabetSize; ++label) {
+      if (vertex.edges_[label]) {
+        (*out) << i << " -> " << GetLastCombinedWith(vertex.edges_[label]) 
+          << " [label=\"" 
+          << (label % 2 ? "-" : "") << static_cast<char>('x' + static_cast<char>(label / 2)) << ";"
+          << vertex.weights_[label] << "\"];\n";
+      }
+    }
+  }
+
+  (*out) << "}";
+}
+
+void FoldedGraph2::ShiftWeight(Vertex v, Weight shift) {
+  if (shift == 0) {
+    return;
+  }
+
+  auto& vertex = edges_[GetLastCombinedWith(v)];
+
+  for (auto label = 0u; label < 2 * kAlphabetSize; ++label) {
+    if (vertex.edges_[label] == kNullVertex) {
+      continue;
+    }
+
+    if (Equal(vertex.edges_[label], v)) {
+      assert(Equal(edges_[GetLastCombinedWith(vertex.edges_[label])].endpoint(Inverse(label)), v));
+      continue;
+    }
+
+    auto& inverse_edge_weight = edges_[GetLastCombinedWith(vertex.edges_[label])].weights_[Inverse(label)];
+    vertex.weights_[label] += shift;
+    inverse_edge_weight -= shift;
+  }
 }
 
 

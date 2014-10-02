@@ -1,6 +1,7 @@
 #include "gtest/gtest.h"
 #include "folded_graph2.h"
 
+#include <chrono>
 #include <deque>
 #include <fstream>
 #include <limits>
@@ -9,6 +10,8 @@
 #include <memory>
 #include <random>
 #include <utility>
+
+#include "acc.h"
 
 namespace crag {
 
@@ -250,6 +253,8 @@ struct Graph {
     static int count = 0;
     ++count;
 
+    assert(o);
+
     assert(e1.label() == e2.label());
     assert(edges_.at(o).count(e1));
     assert(edges_.at(o).count(e2));
@@ -263,11 +268,11 @@ struct Graph {
       }
     }
 
-  //this->PrintAsDot(&std::ofstream("fold-" + std::to_string(count) + "-" + std::to_string(o) + "-" + std::to_string(e1.label()) + "-1.dot"));
+    //this->PrintAsDot(&std::ofstream("fold-" + std::to_string(count) + "-" + std::to_string(o) + "-" + std::to_string(e1.label()) + "-1.dot"));
 
-  JoinVertices(e1.to(), e2.to());
+    JoinVertices(e1.to(), e2.to());
 
-  //this->PrintAsDot(&std::ofstream("fold-" + std::to_string(count) + "-" + std::to_string(o) + "-" + std::to_string(e1.label()) + "-2.dot"));
+    //this->PrintAsDot(&std::ofstream("fold-" + std::to_string(count) + "-" + std::to_string(o) + "-" + std::to_string(e1.label()) + "-2.dot"));
   }
 
 
@@ -454,24 +459,24 @@ TEST(NaiveGraphFolding, HarvestWeight4) {
 
 TEST(NaiveGraphFolding, StressTest) {
 #ifndef NDEBUG
-  static const unsigned int kRepeat = 100000;
+  static const unsigned int kRepeat = 10000;
 #else
-  static const unsigned int kRepeat = 1000000;
+  static const unsigned int kRepeat = 100000;
 #endif
   static const unsigned int kWords = 3;
-  std::mt19937_64 engine;
+  std::mt19937_64 engine(17);
   RandomWord rw(2, 8);
   std::discrete_distribution<Weight> random_weight({0.6, 0.4, 0.1});
 
   for (auto i = 0u; i < kRepeat; ++i) {
-#ifndef NDEBUG
+#ifdef DEBUG_PRINT
     std::cout << "== " << i << " ==========================" << std::endl;
 #endif
     std::vector<std::pair<Word, Weight>> words;
     Graph g;
     for (auto j = 0u; j < kWords; ++j) {
       words.emplace_back(rw(engine), random_weight(engine));
-#ifndef NDEBUG
+#ifdef DEBUG_PRINT
       std::cout << ::testing::PrintToString(words.back()) << "\n";
 #endif
       g.PushCycle(words.back().first, g.root(), words.back().second);
@@ -521,7 +526,7 @@ naive_graph_folding::Graph GetNaive(const std::vector<Cycle>& cycles) {
   for(auto&& cycle : cycles) {
     g.PushCycle(cycle.word(), g.root(), cycle.weight());
   }
-  g.PrintAsDot(&std::ofstream("g-" + std::to_string(0) + ".dot")); 
+  //g.PrintAsDot(&std::ofstream("g-" + std::to_string(0) + ".dot")); 
   g.Fold();
   return g;
 }
@@ -610,6 +615,16 @@ PushReadCyclesParam push_read_cycles_params[] = {
     {{{"yXY", 1}, {"YYXYXyyyx", 0}, {"XXY", 0}}, 1},
     {{{"yX", 1}, {"xYxY", 1}, {"XYXyX", 1}}, 3},
     {{{"YY", 1}, {"yy", 0}, {"YXY", 1}}, 1},
+    {{{"xxyXYY", 1}, {"XY", 0}, {"xyxyx", 0}}, 1},
+    {{{"yXyy", 0}, {"XYY", 0}, {"Xyy", 0}}, 0},
+    {{{"yyxY", 0}, {"yyXy", 0}, {"yxY", 0}}, 0},
+    {{{"yXyxY", 0}, {"xxY", 0}, {"yXXX", 0}}, 0},
+    {{{"xyx", 0}, {"xyyyxYXY", 0}, {"XYx", 0}}, 0},
+    {{{"yxYxYxy", 0}, {"YYYYxYx", 0}, {"Xyyyy", 0}}, 0},
+    {{{"YxY", 0}, {"YYxy", 1}, {"YY", 0}}, 2},
+    {{{"yyy", 0}, {"YYYY", 1}, {"yyy", 1}}, 1},
+    {{{"yx", 1}, {"xyx", 0}}, 0},
+
     //{{{"", 1}, {"", 0}}, 0},
     //{{{"", 1}, {"", 0}}, 0},
 };
@@ -1043,8 +1058,8 @@ TEST(FoldedGraph2, PushWithWeight10) {
   g.PushCycle(second, g.root(), 0);
   g.PushCycle(third, g.root(), 0);
 
-  EXPECT_EQ(2, g.modulus());
-  EXPECT_EQ(std::make_tuple(g.root(), first.size(), 1), g.ReadWord(first));
+  EXPECT_EQ(1, g.modulus());
+  EXPECT_EQ(std::make_tuple(g.root(), first.size(), 0), g.ReadWord(first));
   EXPECT_EQ(std::make_tuple(g.root(), second.size(), 0), g.ReadWord(second));
   EXPECT_EQ(std::make_tuple(g.root(), third.size(), 0), g.ReadWord(third));
 }
@@ -1053,7 +1068,7 @@ TEST(FoldedGraph2, PushWithWeight10) {
 
 TEST(FoldedGraph2, PushCycleStressRandom) {
 #ifndef NDEBUG
-  static const unsigned int kRepeat = 100000;
+  static const unsigned int kRepeat = 1000;
 #else
   static const unsigned int kRepeat = 1000000;
 #endif
@@ -1063,6 +1078,9 @@ TEST(FoldedGraph2, PushCycleStressRandom) {
   std::uniform_int_distribution<size_t> random_length(2, 10);
 
   for (auto i = 0u; i < kRepeat; ++i) {
+#ifdef DEBUG_PRINT
+    std::cout << "== " << i << " ==========================" << std::endl;
+#endif
     FoldedGraph2 g;
     for (auto j = 0u; j < kWords; ++j) {
       FoldedGraph2::Word w;
@@ -1071,58 +1089,181 @@ TEST(FoldedGraph2, PushCycleStressRandom) {
         w.PushBack(random_letter(engine));
       }
 
+#ifdef DEBUG_PRINT
+      std::cout << w << std::endl;
+#endif
+
       g.PushCycle(w);
+
+
       ASSERT_EQ(std::make_tuple(1, length, 0), g.ReadWord(w));
     }
   }
 }
 
 TEST(FoldedGraph2, PushCycleWithWeightStressRandom) {
-#ifndef NDEBUG
-  static const unsigned int kRepeat = 100000;
-#else
-  static const unsigned int kRepeat = 1000000;
-#endif
-  static const unsigned int kWords = 3;
-  std::mt19937_64 engine;
-  std::uniform_int_distribution<> random_letter(0, 3);
-  std::uniform_int_distribution<size_t> random_length(2, 10);
+  static const auto kDuration = std::chrono::seconds(10);
+  static const unsigned int kWords = 4;
+  std::mt19937_64 engine(17);
+  RandomWord rw(2, 10);
+  std::discrete_distribution<Weight> random_weight({0.6, 0.4, 0.1});
 
+  auto begin = std::chrono::steady_clock::now();
 
-  for (auto i = 0u; i < kRepeat; ++i) {
+  auto repeat = 0ull;
+  while (std::chrono::steady_clock::now() - begin < kDuration) {
+    ++repeat;
+#ifdef DEBUG_PRINT
     std::cout << "== " << i << " ==========================" << std::endl;
-    std::vector<FoldedGraph2::Word> words;
+#endif
+    std::vector<std::pair<Word, Weight>> words;
     FoldedGraph2 g;
     for (auto j = 0u; j < kWords; ++j) {
-      FoldedGraph2::Word w;
-      size_t length = random_length(engine);
-      while(w.size() < length) {
-        w.PushBack(random_letter(engine));
-      }
-
-      std::cout << w << std::endl;
-
-      words.push_back(w);
-
-      g.PushCycle(w, g.root(), (j == 0 ? 1 : 0));
-      ASSERT_EQ(std::make_tuple(1, length, (j == 0 ? 1 : 0)), g.ReadWord(w));
+      words.emplace_back(rw(engine), random_weight(engine));
+#ifdef DEBUG_PRINT
+      std::cout << ::testing::PrintToString(words.back()) << "\n";
+#endif
+      g.PushCycle(words.back().first, g.root(), words.back().second);
     }
 
     if (g.modulus() != 1) {
-      bool first = true;
       for (auto&& w : words) {
-        auto res = g.ReadWord(w);
-        if (std::get<2>(res) < 0) {
-          std::get<2>(res) += g.modulus();
-        } 
-        ASSERT_EQ(std::make_tuple(1, w.size(), first ? 1 : 0), res)
-          << "Pushed " << ::testing::PrintToString(words) << ", fail on " << w
+        auto res = g.ReadWord(w.first);
+        ASSERT_EQ(std::make_tuple(1, w.first.size(), g.WeightMod(w.second)), res)
+          << "Pushed " << ::testing::PrintToString(words) << ", fail on " << w.first
           << ", graph mod is " << g.modulus();
-        first = false;
       }
     }
   }
+  std::cout << std::string(13, ' ') << repeat << " repeats" << std::endl;
+  ASSERT_GT(repeat, 10000);
+}
 
+TEST(FoldedGraph2, StressRootHarvestCompareWithNaive) {
+  static const auto kDuration = std::chrono::seconds(10);
+  static const unsigned int kWords = 2;
+  std::mt19937_64 engine(17);
+  RandomWord rw(2, 4);
+  std::discrete_distribution<Weight> random_weight({0.6, 0.4, 0.1});
+
+  auto begin = std::chrono::steady_clock::now();
+
+  std::chrono::high_resolution_clock::duration harvest_folded_duration{}, harvest_naive_duration{};
+  std::chrono::high_resolution_clock::time_point proc_begin;
+  auto repeat = 0ull;
+  while (std::chrono::steady_clock::now() - begin < kDuration) {
+    ++repeat;
+#ifdef DEBUG_PRINT
+    std::cout << "== " << i << " ==========================" << std::endl;
+#endif
+    std::vector<std::pair<Word, Weight>> words;
+    FoldedGraph2 g;
+    naive_graph_folding::Graph g_naive;
+    auto max_length = 0u;
+    for (auto j = 0u; j < kWords; ++j) {
+      words.emplace_back(rw(engine), random_weight(engine));
+#ifdef DEBUG_PRINT
+      std::cout << ::testing::PrintToString(words.back()) << "\n";
+#endif
+      proc_begin = std::chrono::high_resolution_clock::now();
+      g.PushCycle(words.back().first, g.root(), words.back().second);
+      harvest_folded_duration += (std::chrono::high_resolution_clock::now() - proc_begin);
+  
+      proc_begin = std::chrono::high_resolution_clock::now();
+      g_naive.PushCycle(words.back().first, g.root(), words.back().second);
+      harvest_naive_duration += (std::chrono::high_resolution_clock::now() - proc_begin);
+      if (words.back().first.size() > max_length) {
+        max_length = words.back().first.size();
+      }
+    }
+
+    proc_begin = std::chrono::high_resolution_clock::now();
+    g_naive.Fold();
+    harvest_naive_duration += (std::chrono::high_resolution_clock::now() - proc_begin);
+
+    proc_begin = std::chrono::high_resolution_clock::now();
+    auto harvest_folded = g.Harvest(max_length + 2, g.root(), g.root(), 1);
+    harvest_folded_duration += (std::chrono::high_resolution_clock::now() - proc_begin);
+
+    proc_begin = std::chrono::high_resolution_clock::now();
+    auto harvest_naive = g_naive.Harvest(max_length + 2, g.root(), g.root(), 1);
+    harvest_naive_duration += (std::chrono::high_resolution_clock::now() - proc_begin);
+
+    ASSERT_EQ(harvest_naive, harvest_folded)
+      << "Pushed " << ::testing::PrintToString(words);
+
+  }
+  std::cout << std::string(13, ' ') << repeat << " repeats" << std::endl;
+  std::cout << std::string(13, ' ') 
+    << std::chrono::duration_cast<std::chrono::milliseconds>(harvest_folded_duration).count()
+    << " vs "
+    << std::chrono::duration_cast<std::chrono::milliseconds>(harvest_naive_duration).count()
+    << std::endl;
+  ASSERT_GT(repeat, 10000);
+
+}
+
+TEST(FoldedGraph2, StressFullHarvestCompareWithNaive) {
+  static const auto kDuration = std::chrono::seconds(10);
+  static const unsigned int kWords = 2;
+  std::mt19937_64 engine(17);
+  RandomWord rw(2, 4);
+  std::discrete_distribution<Weight> random_weight({0.6, 0.4, 0.1});
+
+  auto begin = std::chrono::steady_clock::now();
+
+  std::chrono::high_resolution_clock::duration harvest_folded_duration{}, harvest_naive_duration{};
+  std::chrono::high_resolution_clock::time_point proc_begin;
+  auto repeat = 0ull;
+  while (std::chrono::steady_clock::now() - begin < kDuration) {
+    ++repeat;
+#ifdef DEBUG_PRINT
+    std::cout << "== " << i << " ==========================" << std::endl;
+#endif
+    std::vector<std::pair<Word, Weight>> words;
+    FoldedGraph2 g;
+    naive_graph_folding::Graph g_naive;
+    auto max_length = 0u;
+    for (auto j = 0u; j < kWords; ++j) {
+      words.emplace_back(rw(engine), random_weight(engine));
+#ifdef DEBUG_PRINT
+      std::cout << ::testing::PrintToString(words.back()) << "\n";
+#endif
+      proc_begin = std::chrono::high_resolution_clock::now();
+      g.PushCycle(words.back().first, g.root(), words.back().second);
+      harvest_folded_duration += (std::chrono::high_resolution_clock::now() - proc_begin);
+  
+      proc_begin = std::chrono::high_resolution_clock::now();
+      g_naive.PushCycle(words.back().first, g.root(), words.back().second);
+      harvest_naive_duration += (std::chrono::high_resolution_clock::now() - proc_begin);
+      if (words.back().first.size() > max_length) {
+        max_length = words.back().first.size();
+      }
+    }
+
+    proc_begin = std::chrono::high_resolution_clock::now();
+    g_naive.Fold();
+    harvest_naive_duration += (std::chrono::high_resolution_clock::now() - proc_begin);
+
+    proc_begin = std::chrono::high_resolution_clock::now();
+    auto harvest_folded = g.Harvest(max_length + 2, 1);
+    harvest_folded_duration += (std::chrono::high_resolution_clock::now() - proc_begin);
+
+    proc_begin = std::chrono::high_resolution_clock::now();
+    auto harvest_naive = g_naive.Harvest(max_length + 2, 1);
+    harvest_naive_duration += (std::chrono::high_resolution_clock::now() - proc_begin);
+
+    ASSERT_EQ(ReduceAndNormalize(harvest_naive), ReduceAndNormalize(harvest_folded))
+      << "Pushed " << ::testing::PrintToString(words);
+
+  }
+  std::cout << std::string(13, ' ') << repeat << " repeats" << std::endl;
+  std::cout << std::string(13, ' ') 
+    << std::chrono::duration_cast<std::chrono::milliseconds>(harvest_folded_duration).count()
+    << " vs "
+    << std::chrono::duration_cast<std::chrono::milliseconds>(harvest_naive_duration).count()
+    << std::endl;
+  ASSERT_GT(repeat, 5000);
 
 }
 

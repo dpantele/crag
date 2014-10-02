@@ -1,3 +1,7 @@
+#pragma once
+#ifndef CRAG_FOLDED_GRAPH2_H_
+#define CRAG_FOLDED_GRAPH2_H_
+
 #include <array>
 #include <cassert>
 #include <cstdint>
@@ -48,6 +52,7 @@ public:
     std::array<Vertex, kAlphabetSize * 2> edges_; //!< Id of the endpoint of the edge labeled by (i / 2)^(i % 2), NullVertex if no edge
     std::array<Weight, kAlphabetSize * 2> weights_; //!< Id of the endpoint of the edge labeled by (i / 2)^(i % 2), NullVertex if no edge
     mutable Vertex combined_with_ = kNullVertex; //!< When graph is folded, some vertices are sticked together. If the vertex is, this will be the id.
+    Vertex current_combined_next_ = kNullVertex; //<! We need to trace which vertices were combined with the current one during vertex join
 
     ///@{
     //! Return the endpoint of the edge labeled by l
@@ -140,7 +145,7 @@ public:
   std::vector<Word> Harvest(size_t k, Vertex v1, Vertex v2, Weight w = 0) const;
 
   //! Find all word of length up to k which can can be read from v1 to v2
-  void Harvest(size_t k, Vertex v1, Vertex v2, Weight w, std::vector<Word>* result) const;
+  void Harvest(size_t k, Vertex v1, Vertex v2, Weight w, std::vector<Word>* result, std::vector<uint8_t>* excluded = nullptr) const;
 
   //! Harvest all cycles of defined weight of length less thatn @ref k
   std::vector<Word> Harvest(size_t k, Weight w = 0) const;
@@ -166,6 +171,10 @@ public:
 
   void PrintAsDot(std::ostream* out) const;
 
+  Weight WeightMod(Weight w) const {
+    return modulus_ == 0 ? w : (((w % modulus_) + modulus_) % modulus_);
+  }
+
  private:
   //! The id of the root
   static const Vertex kRootVertex = 1;
@@ -176,12 +185,14 @@ public:
   std::vector<VertexEdges> edges_; //!< Main graph storage. Cell #i stores info about vertex #i
   Weight modulus_ = 0; //!< Something to make incomparable weigth comparable
 
-  Weight WeightMod(Weight w) const {
-    return modulus_ == 0 ? w : (((w % modulus_) + modulus_) % modulus_);
-  }
-
   //! Return the last vertex in the list of combined vertices
   Vertex GetLastCombinedWith(Vertex v) const; 
+
+  //! Make v2.combined_with_ = v1
+  void Combine(Vertex v1, Vertex v2);
+
+  //! Called in the end of JoinVertices to forget about all vertices which are not used anymore
+  void ForgetCombined();
 
   //! Add new edge labeled by l from @ref from to @ref to (or a new vertex, if null)
   Vertex AddEdge(Label l, Vertex from, Vertex to = kNullVertex);
@@ -198,3 +209,5 @@ public:
 };
 
 } //namespace crag
+
+#endif //CRAG_FOLDED_GRAPH2_H_

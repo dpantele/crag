@@ -3,6 +3,10 @@
 * @brief Short word of 2-alphabet stored in a single 64-bit field
 */
 
+#pragma once
+#ifndef CRAG_COMPRESSED_WORD_H_
+#define CRAG_COMPRESSED_WORD_H_
+
 #include <cstdint>
 #include <iostream>
 
@@ -244,5 +248,6 @@ inline std::ostream& operator<<(std::ostream& out, const CWord& w) {
   return out;
 }
 
-
 }
+
+#endif //CRAG_COMPREESED_WORDS_H_

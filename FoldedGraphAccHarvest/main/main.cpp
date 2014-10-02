@@ -113,45 +113,18 @@ int main(int argc, const char *argv[]) {
       unprocessed_pairs.emplace(*exists.first);
     }
 
-    std::vector<Word> new_u;
+    FoldedGraph2 g;
+    g.PushCycle(u, g.root(), 1);
 
-    std::set<Word> upp_s;
-    
-    for (size_t i = 0; i < u.size(); ++i) {
-      u.CyclicLeftShift();
-      for(const auto& s : conjugators) {
-        upp_s.insert(Conjugate(u, s));
-      }
+    for (auto i = 0u; i < complete_count[v.size()]; ++i) {
+      g.CompleteWith(v);
     }
 
-    for (auto&& upp : upp_s) {
-      if (upp.Empty()) {
-        continue;
-      }
-      // PrintWord(upp, &std::cout);
-      // std::cout << std::endl;
+    auto eq_u = g.Harvest(max_harvest_length, g.root());
+    eq_u = ReduceAndNormalize(eq_u);
 
-      FoldedGraph2 g;
-      auto end = g.PushWord(upp);
-
-      for (auto i = 0u; i < complete_count[v.size()]; ++i) {
-        g.CompleteWith(v);
-      }
-
-      auto eq_u = g.Harvest(max_harvest_length, g.root(), end);
-      eq_u = ReduceAndNormalize(eq_u);
-      new_u.reserve(new_u.size() + eq_u.size());
-      for(auto& up : eq_u) {
-        new_u.push_back(std::move(up));
-        // PrintWord(up, &std::cout);
-        // std::cout << std::endl;
-      }
-    }
-
-    std::sort(new_u.begin(), new_u.end());
-    auto new_u_end = std::unique(new_u.begin(), new_u.end());
     std::bitset<Word::kMaxLength> available_sizes;
-    for (auto u_p = new_u.begin(); u_p != new_u_end; ++u_p) {
+    for (auto u_p = eq_u.begin(); u_p != eq_u.end(); ++u_p) {
       auto exists = all_pairs.emplace(*u_p, v);
       if (exists.second) {
         if (u_p->size() > 0) {

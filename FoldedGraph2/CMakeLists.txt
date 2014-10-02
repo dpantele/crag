@@ -8,5 +8,9 @@ crag_library(FoldedGraph2
   folded_graph
 )
 
-crag_test(folded_graph FoldedGraph2)
+crag_test(folded_graph 
+  AccHarvest
+  FoldedGraph2
+)
+
 crag_test(cword FoldedGraph2)

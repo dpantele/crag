@@ -1,6 +1,7 @@
 #include "acc.h"
 
 #include <bitset>
+#include <chrono>
 #include <cstdlib>
 #include <deque>
 #include <iostream>
@@ -27,10 +28,34 @@ std::vector<std::string> Split(const std::string& str, char split = ':') {
   }
   return result;
 }
+
+struct Stopwatch {
+  using clock = std::chrono::high_resolution_clock;
+  clock::duration duration_;
+  clock::duration last_duration_;
+  clock::time_point last_click_;
+  uint64_t clicks_count_ = 0u;
+
+  void click() {
+    if (clicks_count_ % 2) {
+      last_duration_ = (clock::now() - last_click_);
+      duration_ += last_duration_;
+    } else {
+      last_click_ = clock::now();
+    }
+
+    ++clicks_count_;
+  }
+};
+
+std::ostream& operator<<(std::ostream& out, const Stopwatch& s) {
+  return out
+    << std::chrono::duration_cast<std::chrono::microseconds>(s.last_duration_).count() << "mcs ("
+    << std::chrono::duration_cast<std::chrono::microseconds>(s.duration_ / (s.clicks_count_ / 2)).count() << " avms)";
+}
  
 int main(int argc, const char *argv[]) {
   size_t max_harvest_length = Word::kMaxLength;
-  unsigned int max_conj_size = 2;
   std::vector<uint16_t> complete_count(Word::kMaxLength + 1, 2);
   std::pair<Word, Word> initial = {Word("xyxYXY"), Word("xxxYYYY")};
   std::pair<Word, Word> required = {Word("x"), Word("y")};
@@ -43,8 +68,6 @@ int main(int argc, const char *argv[]) {
 
     if (arg.front() == "maxhl") {
       max_harvest_length = std::stoi(arg[1]);
-    } else if (arg.front() == "conj") {
-      max_conj_size = std::stoi(arg[1]);
     } else if (arg.front() == "comp") {
       auto up_to = std::stoi(arg[1]);
       auto count = std::stoi(arg[2]);
@@ -60,14 +83,11 @@ int main(int argc, const char *argv[]) {
     }
   }
 
-  auto conjugators = GenAllWords(max_conj_size);
   auto normalized = ReduceAndNormalize({initial.first, initial.second});
   initial = {normalized[0], normalized[1]};
 
   std::cout << "Configuration: " << std::endl;
   std::cout << "Max length for harvest: " << max_harvest_length << std::endl;
-  std::cout << "Max conjugator length:  " << max_conj_size << std::endl;
-  std::cout << "Conjugator count:       " << conjugators.size() << std::endl;
   std::cout << "Initial words:          ";
   PrintWord(initial.first, &std::cout);
   std::cout << " | ";
@@ -87,6 +107,9 @@ int main(int argc, const char *argv[]) {
   std::set<std::pair<Word, Word>> all_pairs = {initial};
 
   int counter = 0;
+  Stopwatch folding_time;
+  Stopwatch harvest_time;
+  Stopwatch normalize_time;
 
   while (!all_pairs.count(required) && !unprocessed_pairs.empty()) {
     ++counter;
@@ -113,15 +136,26 @@ int main(int argc, const char *argv[]) {
       unprocessed_pairs.emplace(*exists.first);
     }
 
+    folding_time.click();
     FoldedGraph2 g;
     g.PushCycle(u, g.root(), 1);
 
     for (auto i = 0u; i < complete_count[v.size()]; ++i) {
       g.CompleteWith(v);
     }
+    folding_time.click();
 
+    harvest_time.click();
     auto eq_u = g.Harvest(max_harvest_length, g.root());
+    harvest_time.click();
+
+    normalize_time.click();
     eq_u = ReduceAndNormalize(eq_u);
+    normalize_time.click();
+
+    std::cout << "\nfold " << folding_time;
+    std::cout << "\nharvest " << harvest_time;
+    std::cout << "\nnormalize " << normalize_time;
 
     std::bitset<Word::kMaxLength> available_sizes;
     for (auto u_p = eq_u.begin(); u_p != eq_u.end(); ++u_p) {

@@ -522,23 +522,7 @@ bool FoldedGraph2::PushCycle(Word w, Vertex s, Weight weight) {
 #endif
 
   auto weight_diff = WeightMod(weight - current_weight); // = eps
-  //current weight should be increased by eps
-
-  //if (weight_diff) {
-  //  if (without_suffix.GetBack() & 1) {
-      //a --(-l)-> b  
-      //b --( l)-> a
-      //weight of l should be decreased by w
-      //weight of prefix_end should be shifted by +eps
-      this->ShiftWeight(prefix_end, -weight_diff);
-  //  } else {
-      //a --( l)-> b
-      //b --(-l)-> a
-      //weight of l should be decreased by w
-      //weight of prefix_end should be shifted by +eps
-  //    this->ShiftWeight(prefix_end, -weight_diff);
-  //  }
-  //}
+  this->ShiftWeight(prefix_end, -weight_diff);
 
   JoinVertices(prefix_end, suffix_begin);
   return true;
@@ -603,25 +587,30 @@ bool IsSortedAndUnique(Iter current, Iter end) {
 
 std::vector<Word> FoldedGraph2::Harvest(size_t k, Vertex v1, Vertex v2, Weight weight) const {
   std::vector<Word> result;
-  Harvest(k, v1, v2, weight, &result);
+  FoldedGraph2::HarvestPath current_path = {std::make_tuple(v1, Word{ }, 0)};
+  Harvest(k, v2, weight, &current_path, &result);
   return result;
 }
 
-void FoldedGraph2::Harvest(size_t k, Vertex v1, Vertex v2, Weight weight, std::vector<Word>* result, std::vector<uint8_t>* excluded) const {
-  assert(!excluded || excluded->size() == this->edges_.size());
-  
+void FoldedGraph2::Harvest(
+    size_t k, 
+    Vertex v2, 
+    Weight weight, 
+    FoldedGraph2::HarvestPath* current_path, 
+    std::vector<Word>* result
+  ) const {
+
   auto initial_result_length = result->size();
-  v1 = GetLastCombinedWith(v1);
   v2 = GetLastCombinedWith(v2);
   auto v2_distances = this->ComputeDistances(v2);
-  std::deque<std::tuple<Vertex, Word, Weight>> current_path = {std::make_tuple(v1, Word{ }, 0)};
   
-  while (!current_path.empty()) {
+  while (!current_path->empty()) {
     Vertex v;
     Word w;
     Weight c;
-    std::tie(v, w, c) = current_path.front();
-    current_path.pop_front();
+    std::tie(v, w, c) = current_path->front();
+    current_path->pop_front();
+
     if (v == v2 && (WeightMod(c - weight) == 0 || WeightMod(c + weight) == 0)) {
       result->push_back(w);
     }
@@ -636,13 +625,10 @@ void FoldedGraph2::Harvest(size_t k, Vertex v1, Vertex v2, Weight weight, std::v
       if (n == kNullVertex) {
         continue;
       }
-      if (excluded && (*excluded)[n]) {
-        continue;
-      }
       if (v2_distances[n] + w.size() < k) {
         Word next_word = w;
         next_word.PushBack(label);
-        current_path.emplace_back(n, next_word, c + edges.weight(label));
+        current_path->emplace_back(n, next_word, c + edges.weight(label));
       }
     }
   }
@@ -650,23 +636,41 @@ void FoldedGraph2::Harvest(size_t k, Vertex v1, Vertex v2, Weight weight, std::v
   assert(IsSortedAndUnique(result->begin() + initial_result_length, result->end()));
 }
 
-std::vector<Word> FoldedGraph2::Harvest(size_t k, Weight w) const {
+std::vector<Word> FoldedGraph2::Harvest(size_t k, Weight w) {
   std::vector<Word> result;
-  std::vector<uint8_t> excluded(this->edges_.size());
+
+  if (WeightMod(w) == 0) {
+    result.push_back(Word{ });
+  }
 
   for(auto v = root(); v < edges_.size(); ++v) {
     if(edges_[v].combined_with_) {
       continue;
     }
 
-    auto current_result_size = result.size();
+    for(auto label = 0u; label < 2 * kAlphabetSize; ++label) {
+      if (edges_[v].weights_[label] == 0 && WeightMod(w) != 0) {
+        continue;
+      }
 
-    Harvest(k, v, v, w, &result, &excluded);
-    excluded[v] = 1;
-    std::inplace_merge(result.begin(), result.begin() + current_result_size, result.end());
+      FoldedGraph2::HarvestPath path = {std::make_tuple(
+        edges_[v].edges_[label], 
+        Word({label}), 
+        edges_[v].weights_[label]
+      )};
+
+      auto current_result_size = result.size();
+      Harvest(k, v, w, &path, &result);
+      std::inplace_merge(result.begin(), result.begin() + current_result_size, result.end());
+      edges_[edges_[v].edges_[label]].edges_[Inverse(label)] = kNullVertex;
+      edges_[edges_[v].edges_[label]].weights_[Inverse(label)] = 0;
+      edges_[v].edges_[label] = kNullVertex;
+      edges_[v].weights_[label] = 0;
+    }
   }
   auto unique_end = std::unique(result.begin(), result.end());
   result.erase(unique_end, result.end());
+
   return result;
 }
 

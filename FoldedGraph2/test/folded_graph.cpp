@@ -313,7 +313,7 @@ struct Graph {
       Weight c;
       std::tie(v, w, c) = current_path.front();
       current_path.pop_front();
-      if (v == v2 && WeightMod(c - weight) == 0) {
+      if (v == v2 && (WeightMod(c - weight) == 0 || WeightMod(c + weight) == 0)) {
         result->push_back(w);
       }
 
@@ -439,18 +439,31 @@ TEST(NaiveGraphFolding, HarvestWeight4) {
   using Word = FoldedGraph2::Word;
   EXPECT_EQ(std::vector<FoldedGraph2::Word>({
       Word("xx"),
+      Word("XX"),
       Word("xxy"),
       Word("xxY"),
+      Word("XXy"),
+      Word("XXY"),
       Word("yxx"),
+      Word("yXX"),
       Word("Yxx"),
+      Word("YXX"),
       Word("xxyy"),
       Word("xxYY"),
+      Word("XXyy"),
+      Word("XXYY"),
       Word("yxxy"),
       Word("yxxY"),
+      Word("yXXy"),
+      Word("yXXY"),
       Word("yyxx"),
+      Word("yyXX"),
       Word("Yxxy"),
       Word("YxxY"),
-      Word("YYxx"), 
+      Word("YXXy"),
+      Word("YXXY"),
+      Word("YYxx"),
+      Word("YYXX"),
     }),
     g.Harvest(4, g.root(), g.root(), 1)
   );
@@ -929,18 +942,31 @@ TEST(FoldedGraph2, HarvestWeight4) {
   using Word = FoldedGraph2::Word;
   EXPECT_EQ(std::vector<FoldedGraph2::Word>({
       Word("xx"),
+      Word("XX"),
       Word("xxy"),
       Word("xxY"),
+      Word("XXy"),
+      Word("XXY"),
       Word("yxx"),
+      Word("yXX"),
       Word("Yxx"),
+      Word("YXX"),
       Word("xxyy"),
       Word("xxYY"),
+      Word("XXyy"),
+      Word("XXYY"),
       Word("yxxy"),
       Word("yxxY"),
+      Word("yXXy"),
+      Word("yXXY"),
       Word("yyxx"),
+      Word("yyXX"),
       Word("Yxxy"),
       Word("YxxY"),
-      Word("YYxx"), 
+      Word("YXXy"),
+      Word("YXXY"),
+      Word("YYxx"),
+      Word("YYXX"),
     }),
     g.Harvest(4, g.root(), g.root(), 1)
   );
@@ -964,18 +990,31 @@ TEST(FoldedGraph2, HarvestWeight5) {
   EXPECT_EQ(0, g.modulus());
   EXPECT_EQ(std::vector<Word>({
       Word("xx"),
+      Word("XX"),
       Word("xxy"),
       Word("xxY"),
+      Word("XXy"),
+      Word("XXY"),
       Word("yxx"),
+      Word("yXX"),
       Word("Yxx"),
+      Word("YXX"),
       Word("xxyy"),
       Word("xxYY"),
+      Word("XXyy"),
+      Word("XXYY"),
       Word("yxxy"),
       Word("yxxY"),
+      Word("yXXy"),
+      Word("yXXY"),
       Word("yyxx"),
+      Word("yyXX"),
       Word("Yxxy"),
       Word("YxxY"),
-      Word("YYxx"), 
+      Word("YXXy"),
+      Word("YXXY"),
+      Word("YYxx"),
+      Word("YYXX"),
     }),
     g.Harvest(4, g.root(), g.root(), 1)
   );
@@ -997,6 +1036,8 @@ TEST(FoldedGraph2, HarvestWeight6) {
   EXPECT_EQ(std::vector<Word>({
       Word("xyxYXy"),
       Word("xyxYXY"),
+      Word("yxyXYX"),
+      Word("YxyXYX"),
     }),
     g.Harvest(6, g.root(), g.root(), 1)
   );

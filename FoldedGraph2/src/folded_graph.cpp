@@ -622,7 +622,7 @@ void FoldedGraph2::Harvest(size_t k, Vertex v1, Vertex v2, Weight weight, std::v
     Weight c;
     std::tie(v, w, c) = current_path.front();
     current_path.pop_front();
-    if (v == v2 && WeightMod(c - weight) == 0) {
+    if (v == v2 && (WeightMod(c - weight) == 0 || WeightMod(c + weight) == 0)) {
       result->push_back(w);
     }
 

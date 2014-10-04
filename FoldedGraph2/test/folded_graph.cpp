@@ -1256,6 +1256,7 @@ TEST(FoldedGraph2, StressFullHarvestCompareWithNaive) {
   std::chrono::high_resolution_clock::duration harvest_folded_duration{}, harvest_naive_duration{};
   std::chrono::high_resolution_clock::time_point proc_begin;
   auto repeat = 0ull;
+  auto non_trivial = 0ull;
   while (std::chrono::steady_clock::now() - begin < kDuration) {
     ++repeat;
 #ifdef DEBUG_PRINT
@@ -1273,13 +1274,17 @@ TEST(FoldedGraph2, StressFullHarvestCompareWithNaive) {
       proc_begin = std::chrono::high_resolution_clock::now();
       g.PushCycle(words.back().first, g.root(), words.back().second);
       harvest_folded_duration += (std::chrono::high_resolution_clock::now() - proc_begin);
-  
+
       proc_begin = std::chrono::high_resolution_clock::now();
       g_naive.PushCycle(words.back().first, g.root(), words.back().second);
       harvest_naive_duration += (std::chrono::high_resolution_clock::now() - proc_begin);
       if (words.back().first.size() > max_length) {
         max_length = words.back().first.size();
       }
+    }
+
+    if (g.modulus() != 1) {
+      ++non_trivial;
     }
 
     proc_begin = std::chrono::high_resolution_clock::now();
@@ -1299,6 +1304,7 @@ TEST(FoldedGraph2, StressFullHarvestCompareWithNaive) {
 
   }
   std::cout << std::string(13, ' ') << repeat << " repeats" << std::endl;
+  std::cout << std::string(13, ' ') << non_trivial << " times modulus != 1" << std::endl;
   std::cout << std::string(13, ' ') 
     << std::chrono::duration_cast<std::chrono::milliseconds>(harvest_folded_duration).count()
     << " vs "

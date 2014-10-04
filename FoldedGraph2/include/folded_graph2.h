@@ -5,6 +5,7 @@
 #include <array>
 #include <cassert>
 #include <cstdint>
+#include <deque>
 #include <iostream>
 #include <set>
 #include <tuple>
@@ -144,11 +145,13 @@ public:
   //! Find all word of length up to k which can can be read from v1 to v2
   std::vector<Word> Harvest(size_t k, Vertex v1, Vertex v2, Weight w = 0) const;
 
+  typedef std::deque<std::tuple<Vertex, Word, Weight>> HarvestPath;
+
   //! Find all word of length up to k which can can be read from v1 to v2
-  void Harvest(size_t k, Vertex v1, Vertex v2, Weight w, std::vector<Word>* result, std::vector<uint8_t>* excluded = nullptr) const;
+  void Harvest(size_t k, Vertex v2, Weight w, HarvestPath* current_path, std::vector<Word>* result) const;
 
   //! Harvest all cycles of defined weight of length less thatn @ref k
-  std::vector<Word> Harvest(size_t k, Weight w = 0) const;
+  std::vector<Word> Harvest(size_t k, Weight w = 0);
 
 
   //! Returns true if vertices are equal

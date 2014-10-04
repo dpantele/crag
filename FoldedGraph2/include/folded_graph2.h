@@ -181,6 +181,9 @@ public:
     return modulus_ == 0 ? w : (((w % modulus_) + modulus_) % modulus_);
   }
 
+  //! Get the number of edges of non-trivial weight
+  uint64_t CountNontrivialEdges() const;
+
  private:
   //! The id of the root
   static const Vertex kRootVertex = 1;

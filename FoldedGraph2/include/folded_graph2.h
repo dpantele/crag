@@ -142,6 +142,9 @@ public:
   //! For every vertex s and every cyclic permutation r' of the word r use pushCycle(r',s). 
   void CompleteWith(Word r);
 
+  //! Tries to reduce the number edges with a non-trivial weight
+  void Reweight();
+
   //! Find all word of length up to k which can can be read from v1 to v2
   std::vector<Word> Harvest(size_t k, Vertex v1, Vertex v2, Weight w = 0) const;
 

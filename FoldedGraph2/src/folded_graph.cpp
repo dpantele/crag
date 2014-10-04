@@ -788,5 +788,21 @@ void FoldedGraph2::Reweight() {
   
 }
 
+uint64_t FoldedGraph2::CountNontrivialEdges() const {
+  uint64_t result = 0;
+  for(auto& v : edges_) {
+    if (v.combined_with_) {
+      continue;
+    }
+    for (auto label = 0u; label < 2 * kAlphabetSize; ++label) {
+      if (v.weights_[label] != 0) {
+        ++result;
+      }
+    }
+  }
+
+  return result;
+}
+
 
 } //namespace crag

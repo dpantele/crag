@@ -234,13 +234,18 @@ public:
   
 };
 
-inline void PrintTo(const CWord& w1, ::std::ostream* os) {
+inline void PrintWord(const CWord& w1, std::ostream* out) {
   auto w = w1;
-  *os << w.size() << ": ";
   while (!w.Empty()) {
-    *os << static_cast<char>((w.GetFront() % 2 ? 'X' : 'x') + w.GetFront() / 2);
+    *out << static_cast<char>((w.GetFront() % 2 ? 'X' : 'x') + w.GetFront() / 2);
     w.PopFront();
   }
+}
+
+//gtest debugging print
+inline void PrintTo(const CWord& w, ::std::ostream* out) {
+  *out << w.size() << ": ";
+  PrintWord(w, out);
 }
 
 inline std::ostream& operator<<(std::ostream& out, const CWord& w) {

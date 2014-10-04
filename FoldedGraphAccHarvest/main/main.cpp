@@ -6,14 +6,11 @@
 #include <deque>
 #include <iostream>
 #include <iomanip>
+#include <fstream>
 #include <list>
 #include <string>
 
 using namespace crag;
-
-void PrintWord(const Word& w, std::ostream* out) {
-  PrintTo(w, out);
-}
 
 std::vector<std::string> Split(const std::string& str, char split = ':') {
   std::vector<std::string> result;
@@ -46,19 +43,30 @@ struct Stopwatch {
 
     ++clicks_count_;
   }
+
+  typedef std::chrono::microseconds ResultUnits;
+
+  long long last() {
+    return std::chrono::duration_cast<ResultUnits>(last_duration_).count();
+  }
+
+  long long average() {
+    return std::chrono::duration_cast<ResultUnits>(duration_ / (clicks_count_ / 2)).count();
+  }
 };
 
-std::ostream& operator<<(std::ostream& out, const Stopwatch& s) {
-  return out
-    << std::chrono::duration_cast<std::chrono::microseconds>(s.last_duration_).count() << "mcs ("
-    << std::chrono::duration_cast<std::chrono::microseconds>(s.duration_ / (s.clicks_count_ / 2)).count() << " avms)";
-}
- 
 int main(int argc, const char *argv[]) {
   size_t max_harvest_length = Word::kMaxLength;
   std::vector<uint16_t> complete_count(Word::kMaxLength + 1, 2);
   std::pair<Word, Word> initial = {Word("xyxYXY"), Word("xxxYYYY")};
   std::pair<Word, Word> required = {Word("x"), Word("y")};
+
+  std::ostream* out = &std::cout;
+
+  std::ofstream stats_out;
+  std::ofstream unproc_words;
+  std::ofstream proc_words;
+  std::ofstream estats_out;
 
   for (int argi = 1; argi < argc; ++argi) {
     auto arg = Split(argv[argi]);
@@ -80,28 +88,62 @@ int main(int argc, const char *argv[]) {
     } else if (arg.front() == "init") {
       initial.first = Word(arg[1]);
       initial.second = Word(arg[2]);
+    } else if (arg.front() == "out") {
+      stats_out.open(arg[1] + ".txt");
+      out = &stats_out;
+
+      proc_words.open(arg[1] + "_proc_words.txt");
+      proc_words << "iter, u, v\n";
+      unproc_words.open(arg[1] + "_unproc_words.txt");
+      unproc_words << "u, v\n";
+      estats_out.open(arg[1] + "_ext.txt");
     }
   }
+
+  *out << std::left ;
+  *out << std::setw(7) << "iter";
+  *out << std::setw(9) << ", unproc";
+  *out << std::setw(9) << ", total";
+  *out << std::setw(4) << ", u";
+  *out << std::setw(4) << ", v";
+  *out <<                 ", min new size";
+  *out <<                 ", folding time";
+  *out <<                 ", harvest time";
+  *out << std::endl;
 
   auto normalized = ReduceAndNormalize({initial.first, initial.second});
   initial = {normalized[0], normalized[1]};
 
-  std::cout << "Configuration: " << std::endl;
-  std::cout << "Max length for harvest: " << max_harvest_length << std::endl;
-  std::cout << "Initial words:          ";
-  PrintWord(initial.first, &std::cout);
-  std::cout << " | ";
-  PrintWord(initial.second, &std::cout);
-  std::cout << "\nHow many times graph is completed with v: " << std::endl;
-  std::cout << "Length of v: ";
-  for (auto i = 0u; i < complete_count.size(); ++i) {
-    std::cout << std::setw(2) << i << ' ';
+  if (estats_out.is_open()) {
+    estats_out << "Configuration: " << std::endl;
+    estats_out << "Max length for harvest: " << max_harvest_length << std::endl;
+    estats_out << "Initial words:          ";
+    PrintTo(initial.first, &estats_out);
+    estats_out << " | ";
+    PrintTo(initial.second, &estats_out);
+    estats_out << "\nHow many times graph is completed with v: " << std::endl;
+    estats_out << "Length of v: ";
+    for (auto i = 0u; i < complete_count.size(); ++i) {
+      estats_out << std::setw(2) << i << ' ';
+    }
+    estats_out << "\nTimes:       ";
+    for (auto i = 0u; i < complete_count.size(); ++i) {
+      estats_out << std::setw(2) << complete_count[i] << ' ';
+    }
+    estats_out << "\n\n";
+    estats_out << "iteration, unprocessed count, total count, ";
+    estats_out << "graph size, ";
+    estats_out << "non-zero edges before reweight, ";
+    estats_out << "non-zero edges after reweight, ";
+    estats_out << "harvest result size, ";
+    estats_out << "after normalize size, ";
+    estats_out << "u size, v size, new sizes, ";
+    estats_out << "folding time, average folding time, ";
+    estats_out << "reweight time, average reweight time, ";
+    estats_out << "harvest time, average harvest time, ";
+    estats_out << "normalize time, average normalize time, ";
+    estats_out << "\n";
   }
-  std::cout << "\nTimes:       ";
-  for (auto i = 0u; i < complete_count.size(); ++i) {
-    std::cout << std::setw(2) << complete_count[i] << ' ';
-  }
-  std::cout << "\n\n";
 
   std::set<std::pair<Word, Word>> unprocessed_pairs = {initial};
   std::set<std::pair<Word, Word>> all_pairs = {initial};
@@ -114,27 +156,41 @@ int main(int argc, const char *argv[]) {
 
   while (!all_pairs.count(required) && !unprocessed_pairs.empty()) {
     ++counter;
-    std::cout << std::left << std::setw(6) << counter << ", ";
-    std::cout.width(9);
-    std::cout << unprocessed_pairs.size() << ", ";
-    std::cout.width(9);
-    std::cout << all_pairs.size() << ", ";
-    // std::cout << std::endl;
+    *out << std::left << std::setw(7) << counter << ", ";
+    *out << std::right << std::setw(7) << unprocessed_pairs.size() << ", ";
+    *out << std::right << std::setw(7) << all_pairs.size() << ", ";
+
+    if (estats_out.is_open()) {
+      estats_out << counter << ", ";
+      estats_out << unprocessed_pairs.size() << ", ";
+      estats_out << all_pairs.size() << ", ";
+    }
 
     Word u, v;
     auto next_pair = *unprocessed_pairs.begin();
     unprocessed_pairs.erase(unprocessed_pairs.begin());
     std::tie(v, u) = std::move(next_pair);
-    //std::cout << "u = ";
-    std::cout << "  (";
-    PrintWord(u, &std::cout);
-    std::cout << " | ";
-    // std::cout << "\nv = ";
-    PrintWord(v, &std::cout);
-    std::cout << ")";
+    *out << std::setw(2) << u.size() << ", ";
+    *out << std::setw(2) << v.size() << ", ";
+
+    if (proc_words.is_open()) {
+      proc_words << counter << ", ";
+      PrintWord(u, &proc_words);
+      proc_words << ", ";
+      PrintWord(v, &proc_words);
+      proc_words << "\n";
+    }
+
     auto exists = all_pairs.emplace(u, v);
     if (exists.second) {
       unprocessed_pairs.emplace(*exists.first);
+
+      if (unproc_words.is_open()) {
+        PrintWord(v, &unproc_words);
+        unproc_words << ", ";
+        PrintWord(u, &unproc_words);
+        unproc_words << "\n";
+      }
     }
 
     folding_time.click();
@@ -146,22 +202,36 @@ int main(int argc, const char *argv[]) {
     }
     folding_time.click();
 
+    if (estats_out.is_open()) {
+      estats_out << g.size() << ", ";
+      estats_out << g.CountNontrivialEdges() << ", ";
+    }
+
     reweight_time.click();
     g.Reweight();
     reweight_time.click();
+
+    if (estats_out.is_open()) {
+      estats_out << g.CountNontrivialEdges() << ", ";
+    }
 
     harvest_time.click();
     auto eq_u = g.Harvest(max_harvest_length, g.root());
     harvest_time.click();
 
+    if (estats_out.is_open()) {
+      estats_out << eq_u.size() << ", ";
+    }
+
     normalize_time.click();
     eq_u = ReduceAndNormalize(eq_u);
     normalize_time.click();
 
-    std::cout << "\nfold " << folding_time;
-    std::cout << "\nreweight " << reweight_time;
-    std::cout << "\nharvest " << harvest_time;
-    std::cout << "\nnormalize " << normalize_time;
+    if (estats_out.is_open()) {
+      estats_out << eq_u.size() << ", ";
+      estats_out << u.size() << ", ";
+      estats_out << v.size() << ", ";
+    }
 
     std::bitset<Word::kMaxLength> available_sizes;
     for (auto u_p = eq_u.begin(); u_p != eq_u.end(); ++u_p) {
@@ -171,15 +241,47 @@ int main(int argc, const char *argv[]) {
           available_sizes.set(u_p->size() - 1);
         }
         unprocessed_pairs.emplace(*exists.first);
+        if (unproc_words.is_open()) {
+          PrintWord(v, &unproc_words);
+          unproc_words << ", ";
+          PrintWord(*u_p, &unproc_words);
+          unproc_words << "\n";
+        }
       }
     }
-    std::cout << ",\tsz: ";
+
+    bool is_first = true;
     for (auto sz = 0u; sz < Word::kMaxLength; ++sz) {
       if (available_sizes[sz]) {
-        std::cout << sz + 1 << ",";
+        if (is_first) {
+          *out << sz + 1;
+        }
+        if (estats_out.is_open()) {
+          estats_out << sz + 1 << "; ";
+        }
+        is_first = false;
       }
     }
-    std::cout << std::endl;
+
+    *out << ", " << folding_time.last() << ", ";
+    *out << harvest_time.last() << std::endl;
+
+    if (estats_out.is_open()) {
+      estats_out << ", ";
+      estats_out << folding_time.last() << ", ";
+      estats_out << folding_time.average() << ", ";
+      estats_out << reweight_time.last() << ", ";
+      estats_out << reweight_time.average() << ", ";
+      estats_out << harvest_time.last() << ", ";
+      estats_out << harvest_time.average() << ", ";
+      estats_out << normalize_time.last() << ", ";
+      estats_out << normalize_time.average() << "\n";
+    }
+
+    out->flush();
+    estats_out.flush();
+    proc_words.flush();
+    unproc_words.flush();
   }
 
   return 0;

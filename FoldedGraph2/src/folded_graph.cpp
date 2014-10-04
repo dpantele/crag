@@ -725,6 +725,68 @@ void FoldedGraph2::ShiftWeight(Vertex v, Weight shift) {
   }
 }
 
+void FoldedGraph2::Reweight() {
+  std::deque<Vertex> to_check;
+  for(Vertex v = root(); v < edges_.size(); ++v) {
+    if (!edges_[v].combined_with_) {
+      to_check.push_back(v);
+    }
+  }
+
+  std::vector<Weight> w;
+  while (!to_check.empty()) {
+    auto v = to_check.front();
+    to_check.pop_front();
+
+    auto edges_count = 0u;
+    w.clear();
+    w.reserve(2 * kAlphabetSize);
+    for (auto label = 0; label < 2 * kAlphabetSize; ++label) {
+      if (edges_[v].edges_[label]) {
+        w.push_back(edges_[v].weights_[label]);
+      }
+    }
+
+    assert(!w.empty());
+    Weight top_weight = w[0];
+
+    if (w.size() == 2) {
+      if (w[0] == w[1]) {
+        top_weight = w[0];
+      } else {
+        continue;
+      }
+    } else if (w.size() == 3) {
+      if (w[0] == w[1] || w[0] == w[2]) {
+        top_weight = w[0];
+      } else if (w[1] == w[2]) {
+        top_weight = w[1];
+      } else {
+        continue;
+      }
+    } else if (w.size() == 4) {
+      if (w[0] == w[1] && (w[1] == w[2] || w[1] == w[3])) {
+        //aaba & aaab & aaaa
+        top_weight = w[0];
+      } else if (w[2] == w[3] && (w[0] == w[2] || w[1] == w[2])) {
+        //abaa & baaa
+        top_weight = w[2];
+      } else {
+        continue;
+      }
+    }
+    ShiftWeight(v, -top_weight);
+    if (top_weight != 0) {
+      for (auto n : edges_[v].edges_) {
+        if (n != kNullVertex) {
+          to_check.push_back(n);
+        }
+      }
+    }
+  }
+
+  
+}
 
 
 } //namespace crag

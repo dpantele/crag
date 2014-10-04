@@ -110,6 +110,7 @@ int main(int argc, const char *argv[]) {
   Stopwatch folding_time;
   Stopwatch harvest_time;
   Stopwatch normalize_time;
+  Stopwatch reweight_time;
 
   while (!all_pairs.count(required) && !unprocessed_pairs.empty()) {
     ++counter;
@@ -145,6 +146,10 @@ int main(int argc, const char *argv[]) {
     }
     folding_time.click();
 
+    reweight_time.click();
+    g.Reweight();
+    reweight_time.click();
+
     harvest_time.click();
     auto eq_u = g.Harvest(max_harvest_length, g.root());
     harvest_time.click();
@@ -154,6 +159,7 @@ int main(int argc, const char *argv[]) {
     normalize_time.click();
 
     std::cout << "\nfold " << folding_time;
+    std::cout << "\nreweight " << reweight_time;
     std::cout << "\nharvest " << harvest_time;
     std::cout << "\nnormalize " << normalize_time;
 

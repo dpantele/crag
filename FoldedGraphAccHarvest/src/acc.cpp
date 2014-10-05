@@ -33,16 +33,20 @@ void PermuteToMin(Word* w) {
   }
 }
 
+void ReduceAndNormalize(Word* word) {
+  *word = CyclicReduce(*word);
+  auto inverse = *word;
+  inverse.Invert();
+  PermuteToMin(word);
+  PermuteToMin(&inverse);
+  if (inverse < *word) {
+    *word = std::move(inverse);
+  }
+}
+
 std::vector<Word> ReduceAndNormalize(std::vector<Word> words) {
   for (auto& word : words) {
-    word = CyclicReduce(word);
-    auto inverse = word;
-    inverse.Invert();
-    PermuteToMin(&word);
-    PermuteToMin(&inverse);
-    if (inverse < word) {
-      word = std::move(inverse);
-    }
+    ReduceAndNormalize(&word);
   }
 
   std::sort(words.begin(), words.end());

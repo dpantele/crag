@@ -65,6 +65,7 @@ void Invert(InputIterator first, InputIterator last) {
   }
 }
 
+void ReduceAndNormalize(Word* w);
 std::vector<Word> ReduceAndNormalize(std::vector<Word> words);
 
 //! w -> s^(-1) w s

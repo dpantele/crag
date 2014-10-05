@@ -28,8 +28,8 @@ std::vector<std::string> Split(const std::string& str, char split = ':') {
 
 struct Stopwatch {
   using clock = std::chrono::high_resolution_clock;
-  clock::duration duration_;
-  clock::duration last_duration_;
+  clock::duration duration_{0};
+  clock::duration last_duration_{0};
   clock::time_point last_click_;
   uint64_t clicks_count_ = 0u;
 
@@ -60,6 +60,13 @@ int main(int argc, const char *argv[]) {
   std::vector<uint16_t> complete_count(Word::kMaxLength + 1, 2);
   std::pair<Word, Word> initial = {Word("xyxYXY"), Word("xxxYYYY")};
   std::pair<Word, Word> required = {Word("x"), Word("y")};
+
+  std::vector<Word> ws = {Word("yxyXYX"), Word("yyyXXXX")};
+  ws = ReduceAndNormalize(ws);
+  PrintTo(ws[0], &std::cout);
+  std::cout << std::endl;
+  PrintTo(ws[1], &std::cout);
+  std::cout << std::endl;
 
   std::ostream* out = &std::cout;
 

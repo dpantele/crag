@@ -37,7 +37,9 @@ unsigned int GetMaxEqualLetterLength(Word* w) {
   return max_equal_letter_length;
 }
 
-Word Map(Word w, const std::array<unsigned int, 2 * Word::kAlphabetSize>& mapping) {
+typedef std::array<unsigned int, 2 * Word::kAlphabetSize> Mapping;
+
+Word Map(Word w, const Mapping& mapping) {
   Word result;
   while(!w.Empty()) {
     result.PushBack(mapping[w.GetFront()]);
@@ -45,8 +47,6 @@ Word Map(Word w, const std::array<unsigned int, 2 * Word::kAlphabetSize>& mappin
   }
   return result;
 }
-
-typedef std::array<unsigned int, 2 * Word::kAlphabetSize> Mapping;
 
 Mapping MapToMin(Word* w) {
   Mapping result = {0, 1, 2, 3};
@@ -137,20 +137,14 @@ void PermuteToMinWithInverse(Word* w) {
   }
 }
 
-void ReduceAndNormalize(Word* word) {
+void ReduceAndMinCycle(Word* word) {
   *word = CyclicReduce(*word);
-  auto inverse = *word;
-  inverse.Invert();
-  PermuteToMin(word);
-  PermuteToMin(&inverse);
-  if (inverse < *word) {
-    *word = std::move(inverse);
-  }
+  PermuteToMinWithInverse(word);
 }
 
-std::vector<Word> ReduceAndNormalize(std::vector<Word> words) {
+std::vector<Word> ReduceAndMinCycle(std::vector<Word> words) {
   for (auto& word : words) {
-    ReduceAndNormalize(&word);
+    ReduceAndMinCycle(&word);
   }
 
   std::sort(words.begin(), words.end());
@@ -158,12 +152,6 @@ std::vector<Word> ReduceAndNormalize(std::vector<Word> words) {
   words.erase(end, words.end());
 
   return words;
-}
-
-void ReduceAndNormalize(const Mapping& map, Word* word) {
-  *word = CyclicReduce(*word);
-  *word = Map(*word, map);
-  PermuteToMinWithInverse(word);
 }
 
 Mapping MapToMinWithInverse(Word* w) {
@@ -180,26 +168,31 @@ Mapping MapToMinWithInverse(Word* w) {
   return mapping;
 }
 
-std::pair<Word, Word> GetCanonicalPair(const char* u_string, const char* v_string) {
-  return GetCanonicalPair(Word(u_string), Word(v_string));
+void ReduceMapAndMinCycle(const Mapping& mapping, Word* w) {
+  *w = CyclicReduce(*w);
+  *w = Map(*w, mapping);
+  PermuteToMinWithInverse(w);
 }
 
 std::pair<Word, Word> GetCanonicalPair(Word u, Word v) {
   auto mapping = MapToMinWithInverse(&u);
-  
-  ReduceAndNormalize(mapping, &v);  
-  return std::make_pair(v, u);
+  ReduceMapAndMinCycle(mapping, &v);
+  return std::make_pair(u, v);
 }
 
-void ReduceAndNormalize(Word* w, std::vector<Word>* words) {
-  auto mapping = MapToMinWithInverse(w);
-  for (auto& word : *words) {
-    ReduceAndNormalize(mapping, &word);
+std::pair<Word, Word> GetCanonicalPair(const char* u_string, const char* v_string) {
+  return GetCanonicalPair(Word(u_string), Word(v_string));
+}
+
+void GetCanonicalPairs(Word* u, std::vector<Word>* vs) {
+  auto mapping = MapToMinWithInverse(u);
+  for (auto& v : *vs) {
+    ReduceMapAndMinCycle(mapping, &v);
   }
 
-  std::sort(words->begin(), words->end());
-  auto end = std::unique(words->begin(), words->end());
-  words->erase(end, words->end());
+  std::sort(vs->begin(), vs->end());
+  auto end = std::unique(vs->begin(), vs->end());
+  vs->erase(end, vs->end());
 }
 
 Word Conjugate(Word w, Word s) {

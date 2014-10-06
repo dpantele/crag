@@ -34,7 +34,7 @@ TEST(CWord, PopBack) {
   EXPECT_EQ(CWord({0, 2, 1}), w);
   EXPECT_NE(CWord({0, 2, 0}), w);
   w.PopBack(2);
-  EXPECT_EQ(CWord({0}), w);
+  EXPECT_EQ(CWord("x"), w);
 } 
 
 TEST(CWord, Push) {

@@ -43,6 +43,17 @@ public:
     }
   }
 
+  CWord(size_t count, unsigned int letter) 
+    : size_(0)
+    , letters_(0)
+  {
+    assert(count <= kMaxLength);
+    while (count > 0) {
+      --count;
+      PushBack(letter);
+    }
+  }
+
   explicit CWord(const std::string& letters) 
     : size_(0)
     , letters_(0)

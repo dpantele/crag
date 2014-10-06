@@ -168,9 +168,10 @@ void ReduceAndNormalize(const Mapping& map, Word* word) {
 
 Mapping MapToMinWithInverse(Word* w) {
   *w = CyclicReduce(*w);
-  auto mapping = MapToMin(w);
   auto w_inv = *w;
   w_inv.Invert();
+
+  auto mapping = MapToMin(w);
   auto mapping_inv = MapToMin(&w_inv);
   if (w_inv < *w) {
     *w = w_inv;

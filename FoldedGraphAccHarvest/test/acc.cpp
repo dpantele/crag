@@ -53,7 +53,7 @@ TEST(WordOp, CyclicReduce1) {
 
 TEST(WordOp, CyclicReduce2) {
   Word a = {0, 2, 3, 1};
-  EXPECT_EQ(Word({}), CyclicReduce(a));
+  EXPECT_EQ(Word(), CyclicReduce(a));
 }
 
 TEST(WordOp, CyclicReduce3) {

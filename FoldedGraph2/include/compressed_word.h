@@ -30,12 +30,14 @@ public:
     : size_(0)
     , letters_(0)
   {
-    assert(letters.size() <= kMaxLength);
     for (auto letter : letters) {
       assert(letter < kAlphabetSize * 2);
       if (!Empty() && GetBack() == (letter ^ 1)) {
         PopBack();
       } else {
+        if (size_ == kMaxLength) {
+          throw std::length_error("Length of CWord is limited by 16");
+        }
         letters_ <<= kLetterShift;
         letters_ |= letter;
         ++size_;
@@ -47,7 +49,6 @@ public:
     : size_(0)
     , letters_(0)
   {
-    assert(count <= kMaxLength);
     while (count > 0) {
       --count;
       PushBack(letter);
@@ -55,28 +56,8 @@ public:
   }
 
   explicit CWord(const std::string& letters) 
-    : size_(0)
-    , letters_(0)
-  {
-    for (auto&& sym : letters) {
-      switch (sym) {
-        case 'x':
-          PushBack(0);
-          break;
-        case 'X':
-          PushBack(1);
-          break;
-        case 'y':
-          PushBack(2);
-          break;
-        case 'Y':
-          PushBack(3);
-          break;
-        default:
-          throw std::runtime_error("Only x, y, X, Y are allowed to be passed to CWord constructor");
-      }
-    }
-  }
+    : CWord(letters.c_str())
+  { }
 
   explicit CWord(const char* letters) 
     : size_(0)
@@ -98,11 +79,10 @@ public:
           PushBack(3);
           break;
         default:
-          throw std::runtime_error("Only x, y, X, Y are allowed to be passed to CWord constructor");
+          throw std::invalid_argument("Only x, y, X, Y are allowed to be passed to CWord constructor");
       }
     }
   }
-
 
   bool Empty() const {
     return size_ == 0;
@@ -119,8 +99,10 @@ public:
 
   void PushBack(unsigned int letter) {
     assert(letter < kAlphabetSize * 2);
-    assert(size_ < kMaxLength);
     if(Empty() || (letter ^ 1) != GetBack()) {
+      if (size_ == 16) {
+        throw std::length_error("Length of CWord is limited by 16");
+      }
       letters_ <<= kLetterShift;
       letters_ |= letter;
       ++size_;
@@ -133,18 +115,15 @@ public:
     while (!w.Empty()) {
       PushBack(w.GetFront());
       w.PopFront();
-
-      if (size() > 16) {
-        *this = CWord();
-        return;
-      }
     }
   }
 
   void PushFront(unsigned int letter) {
     assert(letter < kAlphabetSize * 2);
-    assert(size_ < kMaxLength);
     if(Empty() || (letter ^ 1) != GetFront()) {
+      if (size_ == 16) {
+        throw std::length_error("Length of CWord is limited by 16");
+      }
       letters_ |= (letter << (kLetterShift * size_));
       ++size_;
     } else {

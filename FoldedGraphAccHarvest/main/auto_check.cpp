@@ -28,6 +28,8 @@ int main(int argc, const char *argv[]) {
   words.ignore(64, '\n');
 
   while (words) {
+    std::string appeared_in;
+    words >> appeared_in;
     words >> next_pair.first;
     next_pair.first.pop_back();
     words >> next_pair.second;
@@ -36,30 +38,30 @@ int main(int argc, const char *argv[]) {
     }
   }
 
-  std::pair<Label, Label> x_y_images[] = {
-    {2, 0},
-    {3, 0},
-    {2, 1},
-    {1, 2},
-    {0, 3},
+  std::pair<Word, Word> x_y_images[] = {
+    {Word("xy"), Word("y")},
   };
 
   for (auto&& x_y_image : x_y_images) {
-  
-    Label x_image;
-    Label y_image;
+    Word x_image;
+    Word y_image;
 
     std::tie(x_image, y_image) = x_y_image;
 
-    std::array<Label, 4> images = {
+    std::array<Word, 4> images = {
       x_image,
-      FoldedGraph2::Inverse(x_image),
+      x_image,
       y_image,
-      FoldedGraph2::Inverse(y_image),
+      y_image,
     }; 
 
+    images[1].Invert();
+    images[3].Invert();
+
     for (Label l = 0; l < 4; ++l) {
-      std::cout << LabelToChar(l) << " -> " << LabelToChar(images[l]) << ", ";
+      std::cout << LabelToChar(l) << " -> ";
+      PrintTo(images[l], &std::cout);
+      std::cout << ", ";
     }
     std::cout << std::endl;
 
@@ -69,32 +71,52 @@ int main(int argc, const char *argv[]) {
         result.PushBack(images[w.GetFront()]);
         w.PopFront();
       }
-      ReduceAndNormalize(&result);
       return result;
     };
 
     auto success_count = 0ull;
+    auto overflow_count = 0ull;
 
+    std::pair<Word, Word> transformed;
     for (auto&& word_pair : all_words) {
-      auto transformed = std::make_pair(
-          TransformWord(word_pair.first),
-          TransformWord(word_pair.second)
-      );
-      if(all_words.count(transformed)) {
+      try {
+        transformed = std::make_pair(
+            TransformWord(word_pair.first),
+            TransformWord(word_pair.second)
+        );
+      } catch (const std::length_error&) {
+        ++overflow_count;
+        continue;
+      }
+
+      if (transformed.first.size() > 12 || transformed.second.size() > 12) {
+        ++overflow_count;
+        continue;
+      }
+
+      auto normalized = GetCanonicalPair(transformed.first, transformed.second);
+      std::swap(normalized.first, normalized.second);
+      if(all_words.count(normalized)) {
         ++success_count;
       } else {
-        PrintTo(word_pair.first, &std::cout);
-        std::cout << ", ";
-        PrintTo(word_pair.second, &std::cout);
-        std::cout << std::endl;
-        PrintTo(transformed.first, &std::cout);
-        std::cout << ", ";
-        PrintTo(transformed.second, &std::cout);
-        std::cout << std::endl;
+        //std::cout << "\n=========\n";
+        //PrintTo(word_pair.first, &std::cout);
+        //std::cout << ", ";
+        //PrintTo(word_pair.second, &std::cout);
+        //std::cout << std::endl;
+        //PrintTo(transformed.first, &std::cout);
+        //std::cout << ", ";
+        //PrintTo(transformed.second, &std::cout);
+        //std::cout << std::endl;
+        //PrintTo(normalized.first, &std::cout);
+        //std::cout << ", ";
+        //PrintTo(normalized.second, &std::cout);
+        //std::cout << std::endl;
       }
     }
 
     std::cout << "Total: " << all_words.size() << ", success: " << success_count << "\n\n";
+    std::cout << "Overflow: " << overflow_count << "\n\n";
   }
   return 0;
 }

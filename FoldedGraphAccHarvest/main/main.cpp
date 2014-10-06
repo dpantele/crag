@@ -58,8 +58,8 @@ struct Stopwatch {
 int main(int argc, const char *argv[]) {
   size_t max_harvest_length = Word::kMaxLength;
   std::vector<uint16_t> complete_count(Word::kMaxLength + 1, 2);
-  std::pair<Word, Word> initial = {Word("xyxYXY"), Word("xxxYYYY")};
-  std::pair<Word, Word> required = {Word("x"), Word("y")};
+  auto initial = GetCanonicalPair("xyxYXY", "xxxYYYY");
+  auto required = GetCanonicalPair("x", "y");
 
   std::ostream* out = &std::cout;
 
@@ -111,16 +111,13 @@ int main(int argc, const char *argv[]) {
   *out <<                 ", harvest time";
   *out << std::endl;
 
-  auto normalized = ReduceAndNormalize({initial.first, initial.second});
-  initial = {normalized[0], normalized[1]};
-
   if (estats_out.is_open()) {
     estats_out << "Configuration: " << std::endl;
     estats_out << "Max length for harvest: " << max_harvest_length << std::endl;
     estats_out << "Initial words:          ";
-    PrintTo(initial.first, &estats_out);
-    estats_out << " | ";
     PrintTo(initial.second, &estats_out);
+    estats_out << " | ";
+    PrintTo(initial.first, &estats_out);
     estats_out << "\nHow many times graph is completed with v: " << std::endl;
     estats_out << "Length of v: ";
     for (auto i = 0u; i < complete_count.size(); ++i) {
@@ -188,14 +185,14 @@ int main(int argc, const char *argv[]) {
       proc_words << "\n";
     }
 
-    auto exists = all_pairs.emplace(u, v);
+    auto exists = all_pairs.insert(GetCanonicalPair(v, u));
     if (exists.second) {
       unprocessed_pairs.emplace(*exists.first);
 
       if (unproc_words.is_open()) {
-        PrintWord(v, &unproc_words);
+        PrintWord(exists.first->second, &unproc_words);
         unproc_words << ", ";
-        PrintWord(u, &unproc_words);
+        PrintWord(exists.first->first, &unproc_words);
         unproc_words << "\n";
       }
     }
@@ -231,7 +228,7 @@ int main(int argc, const char *argv[]) {
     }
 
     normalize_time.click();
-    eq_u = ReduceAndNormalize(eq_u);
+    ReduceAndNormalize(&v, &eq_u);
     normalize_time.click();
 
     if (estats_out.is_open()) {

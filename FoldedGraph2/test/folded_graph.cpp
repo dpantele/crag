@@ -1299,7 +1299,7 @@ TEST(FoldedGraph2, StressFullHarvestCompareWithNaive) {
     auto harvest_naive = g_naive.Harvest(max_length + 2, 1);
     harvest_naive_duration += (std::chrono::high_resolution_clock::now() - proc_begin);
 
-    ASSERT_EQ(ReduceAndNormalize(harvest_naive), ReduceAndNormalize(harvest_folded))
+    ASSERT_EQ(ReduceAndMinCycle(harvest_naive), ReduceAndMinCycle(harvest_folded))
       << "Pushed " << ::testing::PrintToString(words);
 
   }

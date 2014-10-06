@@ -55,11 +55,16 @@ struct Stopwatch {
   }
 };
 
+template<typename U, typename V>
+std::pair<V, U> Swapped(std::pair<U, V> p) {
+  return std::pair<V, U>(std::move(p.second), std::move(p.first));
+}
+
 int main(int argc, const char *argv[]) {
   size_t max_harvest_length = Word::kMaxLength;
   std::vector<uint16_t> complete_count(Word::kMaxLength + 1, 2);
-  auto initial = GetCanonicalPair("xyxYXY", "xxxYYYY");
-  auto required = GetCanonicalPair("x", "y");
+  auto initial_strings = std::pair<std::string, std::string>("xyxYXY", "xxxYYYY");
+  auto required_strings = std::pair<std::string, std::string>("x", "y");
 
   std::ostream* out = &std::cout;
 
@@ -86,8 +91,8 @@ int main(int argc, const char *argv[]) {
         complete_count[i] = count; 
       }
     } else if (arg.front() == "init") {
-      initial.first = Word(arg[1]);
-      initial.second = Word(arg[2]);
+      initial_strings.first = arg[1];
+      initial_strings.second = arg[2];
     } else if (arg.front() == "out") {
       stats_out.open(arg[1] + ".txt");
       out = &stats_out;
@@ -114,10 +119,8 @@ int main(int argc, const char *argv[]) {
   if (estats_out.is_open()) {
     estats_out << "Configuration: " << std::endl;
     estats_out << "Max length for harvest: " << max_harvest_length << std::endl;
-    estats_out << "Initial words:          ";
-    PrintTo(initial.second, &estats_out);
-    estats_out << " | ";
-    PrintTo(initial.first, &estats_out);
+    estats_out << "Pairs are also normalized using automorphisms: yes";
+    estats_out << "Initial words:          " << initial_strings.first << " | " << initial_strings.second << std::endl;
     estats_out << "\nHow many times graph is completed with v: " << std::endl;
     estats_out << "Length of v: ";
     for (auto i = 0u; i < complete_count.size(); ++i) {
@@ -141,6 +144,9 @@ int main(int argc, const char *argv[]) {
     estats_out << "normalize time, average normalize time, ";
     estats_out << "\n";
   }
+
+  auto initial = Swapped(GetCanonicalPair(initial_strings.first.c_str(), initial_strings.second.c_str()));
+  auto required = Swapped(GetCanonicalPair(required_strings.first.c_str(), required_strings.second.c_str()));
 
   std::set<std::pair<Word, Word>> unprocessed_pairs = {initial};
   std::set<std::pair<Word, Word>> all_pairs = {initial};
@@ -186,7 +192,7 @@ int main(int argc, const char *argv[]) {
       proc_words << "\n";
     }
 
-    auto exists = all_pairs.insert(GetCanonicalPair(v, u));
+    auto exists = all_pairs.insert(Swapped(GetCanonicalPair(v, u)));
     if (exists.second) {
       unprocessed_pairs.emplace(*exists.first);
 
@@ -230,7 +236,7 @@ int main(int argc, const char *argv[]) {
     }
 
     normalize_time.click();
-    ReduceAndNormalize(&v, &eq_u);
+    GetCanonicalPairs(&v, &eq_u);
     normalize_time.click();
 
     if (estats_out.is_open()) {

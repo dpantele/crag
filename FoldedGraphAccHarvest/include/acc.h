@@ -65,11 +65,11 @@ void Invert(InputIterator first, InputIterator last) {
   }
 }
 
-void ReduceAndNormalize(Word* w);
-std::vector<Word> ReduceAndNormalize(std::vector<Word> words);
+std::vector<Word> ReduceAndMinCycle(std::vector<Word>);
+
 std::pair<Word, Word> GetCanonicalPair(const char* u, const char* v);
 std::pair<Word, Word> GetCanonicalPair(Word u, Word v);
-void ReduceAndNormalize(Word* w, std::vector<Word>* words);
+void GetCanonicalPairs(Word* u, std::vector<Word>* vs);
 
 //! w -> s^(-1) w s
 Word Conjugate(Word w, Word s);

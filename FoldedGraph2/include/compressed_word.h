@@ -129,6 +129,18 @@ public:
     }
   }
 
+  void PushBack(CWord w) {
+    while (!w.Empty()) {
+      PushBack(w.GetFront());
+      w.PopFront();
+
+      if (size() > 16) {
+        *this = CWord();
+        return;
+      }
+    }
+  }
+
   void PushFront(unsigned int letter) {
     assert(letter < kAlphabetSize * 2);
     assert(size_ < kMaxLength);

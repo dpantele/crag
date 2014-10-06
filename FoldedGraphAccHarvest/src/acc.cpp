@@ -21,98 +21,6 @@ Word CyclicReduce(Word w) {
   return w;
 }
 
-unsigned int GetMaxEqualLetterLength(Word* w) {
-  auto max_equal_letter_length = 0u;
-  auto current_equal_letter_length = 1u;
-  for (auto shift = 0u; shift < w->size(); ++shift) {
-    w->CyclicLeftShift();
-    if (w->GetBack() == w->GetFront()) {
-      ++current_equal_letter_length;
-    } else {
-      current_equal_letter_length = 1u;      
-    }
-    max_equal_letter_length = std::max(max_equal_letter_length, current_equal_letter_length);
-  }
-
-  return max_equal_letter_length;
-}
-
-typedef std::array<unsigned int, 2 * Word::kAlphabetSize> Mapping;
-
-Word Map(Word w, const Mapping& mapping) {
-  Word result;
-  while(!w.Empty()) {
-    result.PushBack(mapping[w.GetFront()]);
-    w.PopFront();
-  }
-  return result;
-}
-
-Mapping MapToMin(Word* w) {
-  Mapping result = {0, 1, 2, 3};
-  if (w->Empty()) {
-    return result;
-  }
-
-  auto count = 0u;
-  while (w->GetBack() == w->GetFront() && count < w->size()) {
-    w->CyclicRightShift();
-    ++count;
-  }
-
-  if (count == w->size()) {
-    *w = Word(w->size(), 0);
-    result[w->GetFront()] = 0;
-    result[FoldedGraph2::Inverse(w->GetFront())] = 1;
-    if (w->GetFront() >= 2) {
-      result[0] = 2;
-      result[1] = 3;
-    }
-    return result;
-  }
-
-  auto candidate = *w;
-
-  auto max_equal_letter_length = GetMaxEqualLetterLength(w);
-  
-  auto current_letter_length = 1u;
-
-  for (auto shift = 0u; shift < w->size(); ++shift) {
-    w->CyclicLeftShift();
-    if (w->GetBack() == w->GetFront()) {
-      ++current_letter_length;
-    } else {
-      if (current_letter_length == max_equal_letter_length) {
-        auto y_preimage = w->GetFront();
-        w->CyclicRightShift(max_equal_letter_length);
-        auto x_preimage = w->GetFront();
-
-        assert(x_preimage != y_preimage && 
-          x_preimage != FoldedGraph2::Inverse(y_preimage));
-
-        Mapping mapping = {0};
-        mapping[x_preimage] = 0;
-        mapping[FoldedGraph2::Inverse(x_preimage)] = 1;
-        mapping[y_preimage] = 2;
-        mapping[FoldedGraph2::Inverse(y_preimage)] = 3;
-
-        auto new_candidate = Map(*w, mapping);
-        if (new_candidate < candidate) {
-          candidate = new_candidate;
-          result = mapping;
-        }
-        w->CyclicLeftShift(max_equal_letter_length);
-      }
-      current_letter_length = 1u;
-    }
-  }
-  assert(candidate.size() == w->size());
-  assert(candidate.GetBack() != (candidate.GetFront() ^ 1));
-  assert(candidate.GetBack() != candidate.GetFront());
-  *w = candidate;
-  return result;
-}
-
 void PermuteToMin(Word* w) {
   if (w->Empty()) return;
 
@@ -154,29 +62,9 @@ std::vector<Word> ReduceAndMinCycle(std::vector<Word> words) {
   return words;
 }
 
-Mapping MapToMinWithInverse(Word* w) {
-  *w = CyclicReduce(*w);
-  auto w_inv = *w;
-  w_inv.Invert();
-
-  auto mapping = MapToMin(w);
-  auto mapping_inv = MapToMin(&w_inv);
-  if (w_inv < *w) {
-    *w = w_inv;
-    mapping = mapping_inv;
-  }
-  return mapping;
-}
-
-void ReduceMapAndMinCycle(const Mapping& mapping, Word* w) {
-  *w = CyclicReduce(*w);
-  *w = Map(*w, mapping);
-  PermuteToMinWithInverse(w);
-}
-
 std::pair<Word, Word> GetCanonicalPair(Word u, Word v) {
-  auto mapping = MapToMinWithInverse(&u);
-  ReduceMapAndMinCycle(mapping, &v);
+  PermuteToMinWithInverse(&u);
+  PermuteToMinWithInverse(&v);
   return std::make_pair(u, v);
 }
 
@@ -185,9 +73,9 @@ std::pair<Word, Word> GetCanonicalPair(const char* u_string, const char* v_strin
 }
 
 void GetCanonicalPairs(Word* u, std::vector<Word>* vs) {
-  auto mapping = MapToMinWithInverse(u);
+  PermuteToMinWithInverse(u);
   for (auto& v : *vs) {
-    ReduceMapAndMinCycle(mapping, &v);
+    PermuteToMinWithInverse(&v);
   }
 
   std::sort(vs->begin(), vs->end());

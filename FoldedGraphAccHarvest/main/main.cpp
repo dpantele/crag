@@ -119,7 +119,7 @@ int main(int argc, const char *argv[]) {
   if (estats_out.is_open()) {
     estats_out << "Configuration: " << std::endl;
     estats_out << "Max length for harvest: " << max_harvest_length << std::endl;
-    estats_out << "Pairs are also normalized using automorphisms: yes";
+    estats_out << "Pairs are also normalized using automorphisms: no";
     estats_out << "Initial words:          " << initial_strings.first << " | " << initial_strings.second << std::endl;
     estats_out << "\nHow many times graph is completed with v: " << std::endl;
     estats_out << "Length of v: ";

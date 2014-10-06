@@ -146,6 +146,7 @@ int main(int argc, const char *argv[]) {
   std::set<std::pair<Word, Word>> all_pairs = {initial};
 
   if (unproc_words.is_open()) {
+    unproc_words << 0 << ", ";
     PrintWord(initial.second, &unproc_words);
     unproc_words << ", ";
     PrintWord(initial.first, &unproc_words);
@@ -190,6 +191,7 @@ int main(int argc, const char *argv[]) {
       unprocessed_pairs.emplace(*exists.first);
 
       if (unproc_words.is_open()) {
+        unproc_words << counter << ", ";
         PrintWord(exists.first->second, &unproc_words);
         unproc_words << ", ";
         PrintWord(exists.first->first, &unproc_words);
@@ -246,6 +248,7 @@ int main(int argc, const char *argv[]) {
         }
         unprocessed_pairs.emplace(*exists.first);
         if (unproc_words.is_open()) {
+          unproc_words << counter << ", ";
           PrintWord(v, &unproc_words);
           unproc_words << ", ";
           PrintWord(*u_p, &unproc_words);

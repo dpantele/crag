@@ -61,13 +61,6 @@ int main(int argc, const char *argv[]) {
   std::pair<Word, Word> initial = {Word("xyxYXY"), Word("xxxYYYY")};
   std::pair<Word, Word> required = {Word("x"), Word("y")};
 
-  std::vector<Word> ws = {Word("yxyXYX"), Word("yyyXXXX")};
-  ws = ReduceAndNormalize(ws);
-  PrintTo(ws[0], &std::cout);
-  std::cout << std::endl;
-  PrintTo(ws[1], &std::cout);
-  std::cout << std::endl;
-
   std::ostream* out = &std::cout;
 
   std::ofstream stats_out;
@@ -154,6 +147,13 @@ int main(int argc, const char *argv[]) {
 
   std::set<std::pair<Word, Word>> unprocessed_pairs = {initial};
   std::set<std::pair<Word, Word>> all_pairs = {initial};
+
+  if (unproc_words.is_open()) {
+    PrintWord(initial.second, &unproc_words);
+    unproc_words << ", ";
+    PrintWord(initial.first, &unproc_words);
+    unproc_words << "\n";
+  }
 
   int counter = 0;
   Stopwatch folding_time;

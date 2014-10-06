@@ -125,6 +125,18 @@ void PermuteToMin(Word* w) {
   }
 }
 
+void PermuteToMinWithInverse(Word* w) {
+  assert(w->GetFront() != FoldedGraph2::Inverse(w->GetBack()));
+
+  auto w_inv = *w;
+  w_inv.Invert();
+  PermuteToMin(w);
+  PermuteToMin(&w_inv);
+  if (w_inv < *w) {
+    *w = w_inv;
+  }
+}
+
 void ReduceAndNormalize(Word* word) {
   *word = CyclicReduce(*word);
   auto inverse = *word;
@@ -151,13 +163,7 @@ std::vector<Word> ReduceAndNormalize(std::vector<Word> words) {
 void ReduceAndNormalize(const Mapping& map, Word* word) {
   *word = CyclicReduce(*word);
   *word = Map(*word, map);
-  auto inverse = *word;
-  inverse.Invert();
-  PermuteToMin(word);
-  PermuteToMin(&inverse);
-  if (inverse < *word) {
-    *word = std::move(inverse);
-  }
+  PermuteToMinWithInverse(word);
 }
 
 Mapping MapToMinWithInverse(Word* w) {
@@ -180,10 +186,7 @@ std::pair<Word, Word> GetCanonicalPair(const char* u_string, const char* v_strin
 std::pair<Word, Word> GetCanonicalPair(Word u, Word v) {
   auto mapping = MapToMinWithInverse(&u);
   
-  v = CyclicReduce(v);
-  v = Map(v, mapping);
-  PermuteToMin(&v);
-
+  ReduceAndNormalize(mapping, &v);  
   return std::make_pair(v, u);
 }
 

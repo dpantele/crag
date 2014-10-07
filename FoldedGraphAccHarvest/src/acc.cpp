@@ -34,6 +34,10 @@ void PermuteToMin(Word* w) {
 }
 
 void PermuteToMinWithInverse(Word* w) {
+  if (w->Empty()) {
+    return;
+  }
+
   assert(w->GetFront() != FoldedGraph2::Inverse(w->GetBack()));
 
   auto w_inv = *w;

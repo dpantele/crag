@@ -649,6 +649,9 @@ std::vector<Word> FoldedGraph2::Harvest(size_t k, Weight w) {
     }
 
     for(auto label = 0u; label < 2 * kAlphabetSize; ++label) {
+      if (edges_[v].edges_[label] == kNullVertex) {
+        continue;
+      }
       if (edges_[v].weights_[label] == 0 && WeightMod(w) != 0) {
         continue;
       }

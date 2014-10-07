@@ -73,9 +73,9 @@ std::pair<Word, Word> GetCanonicalPair(const char* u_string, const char* v_strin
 }
 
 void GetCanonicalPairs(Word* u, std::vector<Word>* vs) {
-  PermuteToMinWithInverse(u);
+  ReduceAndMinCycle(u);
   for (auto& v : *vs) {
-    PermuteToMinWithInverse(&v);
+    ReduceAndMinCycle(&v);
   }
 
   std::sort(vs->begin(), vs->end());

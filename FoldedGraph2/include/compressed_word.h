@@ -14,12 +14,12 @@ namespace crag {
 
 class CWord;
 
-//! Stores word of lenght up to 16
+//! Stores word of lenght up to 32
 class CWord {
 public:
   typedef uint32_t size_type;
   static const int kAlphabetSize = 2;
-  static const size_type kMaxLength = 16;
+  static const size_type kMaxLength = 32;
 
   CWord()
     : size_(0)
@@ -36,7 +36,7 @@ public:
         PopBack();
       } else {
         if (size_ == kMaxLength) {
-          throw std::length_error("Length of CWord is limited by 16");
+          throw std::length_error("Length of CWord is limited by 32");
         }
         letters_ <<= kLetterShift;
         letters_ |= letter;
@@ -97,11 +97,11 @@ public:
     return size_;
   }
 
-  void PushBack(unsigned int letter) {
+  void PushBack(uint64_t letter) {
     assert(letter < kAlphabetSize * 2);
     if(Empty() || (letter ^ 1) != GetBack()) {
-      if (size_ == 16) {
-        throw std::length_error("Length of CWord is limited by 16");
+      if (size_ == kMaxLength) {
+        throw std::length_error("Length of CWord is limited by 32");
       }
       letters_ <<= kLetterShift;
       letters_ |= letter;
@@ -118,11 +118,11 @@ public:
     }
   }
 
-  void PushFront(unsigned int letter) {
+  void PushFront(uint64_t letter) {
     assert(letter < kAlphabetSize * 2);
     if(Empty() || (letter ^ 1) != GetFront()) {
-      if (size_ == 16) {
-        throw std::length_error("Length of CWord is limited by 16");
+      if (size_ == kMaxLength) {
+        throw std::length_error("Length of CWord is limited by 32");
       }
       letters_ |= (letter << (kLetterShift * size_));
       ++size_;
@@ -157,19 +157,21 @@ public:
 
   void Flip() {
     // swap consecutive pairs
-    letters_ = ((letters_ >> 2) & 0x33333333u) | ((letters_ & 0x33333333u) << 2);
+    letters_ = ((letters_ >> 2) & 0x3333333333333333ull) | ((letters_ & 0x3333333333333333ull) << 2);
     // swap nibbles ... 
-    letters_ = ((letters_ >> 4) & 0x0F0F0F0Fu) | ((letters_ & 0x0F0F0F0Fu) << 4);
+    letters_ = ((letters_ >> 4) & 0x0F0F0F0F0F0F0F0Full) | ((letters_ & 0x0F0F0F0F0F0F0F0Full) << 4);
     // swap bytes
-    letters_ = ((letters_ >> 8) & 0x00FF00FFu) | ((letters_ & 0x00FF00FFu) << 8);
+    letters_ = ((letters_ >> 8) & 0x00FF00FF00FF00FFull) | ((letters_ & 0x00FF00FF00FF00FFull) << 8);
     // swap 2-byte long pairs
-    letters_ = ( letters_ >> 16              ) | ( letters_               << 16);  
+    letters_ = ( letters_ >> 16 & 0x0000FFFF0000FFFFull) | ((letters_ & 0x0000FFFF0000FFFFull) << 16);  
+    // swap 4-byte long pairs
+    letters_ = ( letters_ >> 32                        ) | ((letters_                        ) << 32);  
     // shift significant part back to the right
     letters_ >>= (sizeof(letters_) * 8 - size_ * kLetterShift);
   }
 
   void Invert() {
-    static const uint32_t kInvertMask = 0x55555555u;
+    static const uint64_t kInvertMask = 0x5555555555555555ull;
     Flip();
     letters_ ^= kInvertMask;
     ZeroUnused();
@@ -177,12 +179,12 @@ public:
 
   unsigned int GetFront() const {
     assert(!Empty());
-    return letters_ >> (kLetterShift * (size_ - 1)); 
+    return static_cast<unsigned int>(letters_ >> (kLetterShift * (size_ - 1))); 
   }
 
   unsigned int GetBack() const {
     assert(!Empty());
-    return letters_ & 3;
+    return static_cast<unsigned int>(letters_ & kLetterMask);
   }
 
   bool operator < (const CWord& other) const {
@@ -218,11 +220,11 @@ public:
 
 private:
   size_type size_;
-  uint32_t letters_;
+  uint64_t letters_;
 
-  static const uint32_t kLetterMask = 3;
-  static const uint32_t kLetterShift = 2;
-  static const uint32_t kFullMask = ~uint32_t{0};
+  static const uint64_t kLetterMask = 3;
+  static const uint64_t kLetterShift = 2;
+  static const uint64_t kFullMask = ~uint64_t{0};
 
   void ZeroUnused() {
     if (size_) {
@@ -232,8 +234,6 @@ private:
     }
   }
 
-public:
-  
 };
 
 inline void PrintWord(const CWord& w1, std::ostream* out) {

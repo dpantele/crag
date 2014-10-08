@@ -14,7 +14,7 @@ char LabelToChar(Label l) {
 }
 
 int main(int argc, const char *argv[]) {
-  std::string prefix = "h16_c3_10";
+  std::string prefix = "h14_c3";
   std::ifstream generated_words_in(prefix + "_unproc_words.txt");
 
   std::map<std::pair<Word, Word>, unsigned int> generated_words;
@@ -69,7 +69,7 @@ int main(int argc, const char *argv[]) {
     {Word("x"), Word("xy")},
   };
 
-  auto checked_pair = generating_words[1];
+  auto checked_pair = generating_words[1];//GetCanonicalPair("xyXYxYxyyXy", "xyxYxYXyXy");
 
   for (auto&& x_y_image : x_y_images) {
     Word x_image;
@@ -88,11 +88,11 @@ int main(int argc, const char *argv[]) {
     images[3].Invert();
 
     for (Label l = 0; l < 4; ++l) {
-      std::cout << LabelToChar(l) << " -> ";
+      std::cout << "$" << LabelToChar(l) << " \\rightarrow ";
       PrintWord(images[l], &std::cout);
-      std::cout << ", ";
+      std::cout << "$, ";
     }
-    std::cout << std::endl;
+    std::cout << "\n\n";
 
     auto TransformWord = [&images](Word w) -> Word {
       Word result;
@@ -108,32 +108,29 @@ int main(int argc, const char *argv[]) {
     };
 
     auto current_words = TransformPair(checked_pair);
-    std::cout << "Looking for ";
-    PrintWord(current_words.first, &std::cout);
-    std::cout << ", ";
-    PrintWord(current_words.second, &std::cout);
-    std::cout << std::endl;
 
     auto next = generated_words.find(current_words);
     if (next == generated_words.end()) {
       std::cout << " missing" << std::endl;
       continue;
     }
+    std::cout << "\\[\\begin{split}\n";
     while (next->second != 0) {
-      std::cout << "<";
-      PrintWord(current_words.first, &std::cout);
-      std::cout << " | ";
-      PrintWord(current_words.second, &std::cout);
-      std::cout << "> <- ";
+      std::cout << "\\langle";
+      PrintTo(current_words.first, &std::cout);
+      std::cout << " \\mid ";
+      PrintTo(current_words.second, &std::cout);
+      std::cout << "\\rangle\\\\ \n&\\leftarrow ";
       auto next_index = next->second;
       current_words = generating_words[next_index];
       next = generated_words.find(current_words);
     }
-    std::cout << " < ";
-    PrintWord(current_words.first, &std::cout);
-    std::cout << " | ";
-    PrintWord(current_words.second, &std::cout);
-    std::cout << ">\n\n";
+    std::cout << "\\langle";
+    PrintTo(current_words.first, &std::cout);
+    std::cout << " \\mid ";
+    PrintTo(current_words.second, &std::cout);
+    std::cout << "\\rangle\n";
+    std::cout << "\\end{split}\\]\n\n";
   }
   return 0;
 }

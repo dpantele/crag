@@ -67,8 +67,8 @@ std::vector<Word> ReduceAndMinCycle(std::vector<Word> words) {
 }
 
 std::pair<Word, Word> GetCanonicalPair(Word u, Word v) {
-  PermuteToMinWithInverse(&u);
-  PermuteToMinWithInverse(&v);
+  ReduceAndMinCycle(&u);
+  ReduceAndMinCycle(&v);
   return std::make_pair(u, v);
 }
 

@@ -39,7 +39,7 @@ int main(int argc, const char *argv[]) {
   }
 
   std::pair<Word, Word> x_y_images[] = {
-    {Word("xy"), Word("y")},
+    {Word("yx"), Word("y")},
   };
 
   for (auto&& x_y_image : x_y_images) {
@@ -95,7 +95,7 @@ int main(int argc, const char *argv[]) {
       }
 
       auto normalized = GetCanonicalPair(transformed.first, transformed.second);
-      std::swap(normalized.first, normalized.second);
+      normalized.first, normalized.second;
       if(all_words.count(normalized)) {
         ++success_count;
       } else {
@@ -115,7 +115,8 @@ int main(int argc, const char *argv[]) {
       }
     }
 
-    std::cout << "Total: " << all_words.size() << ", success: " << success_count << "\n\n";
+    std::cout << "Total: " << all_words.size() << ", success: " << success_count << "\n";
+    std::cout << "Failed: " << all_words.size() - overflow_count - success_count << "\n";
     std::cout << "Overflow: " << overflow_count << "\n\n";
   }
   return 0;

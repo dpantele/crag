@@ -76,8 +76,6 @@ struct Stopwatch {
     return Iteration(this);
   }
 
-  typedef std::chrono::microseconds ResultUnits;
-
   long long last() {
     return std::chrono::duration_cast<ResultUnits>(last_duration_).count();
   }

@@ -14,7 +14,8 @@ char LabelToChar(Label l) {
 }
 
 int main(int argc, const char *argv[]) {
-  std::ifstream generated_words_in("h12_c3_unproc_words.txt");
+  std::string prefix = "h16_c3_10";
+  std::ifstream generated_words_in(prefix + "_unproc_words.txt");
 
   std::map<std::pair<Word, Word>, unsigned int> generated_words;
 
@@ -39,7 +40,7 @@ int main(int argc, const char *argv[]) {
   std::vector<std::pair<Word, Word>> generating_words;
   generating_words.emplace_back(Word(), Word());
 
-  std::ifstream generating_words_in("h12_c3_proc_words.txt");
+  std::ifstream generating_words_in(prefix + "_proc_words.txt");
   generating_words_in.ignore(64, '\n');
 
   while (generating_words_in) {
@@ -107,6 +108,12 @@ int main(int argc, const char *argv[]) {
     };
 
     auto current_words = TransformPair(checked_pair);
+    std::cout << "Looking for ";
+    PrintWord(current_words.first, &std::cout);
+    std::cout << ", ";
+    PrintWord(current_words.second, &std::cout);
+    std::cout << std::endl;
+
     auto next = generated_words.find(current_words);
     if (next == generated_words.end()) {
       std::cout << " missing" << std::endl;

@@ -46,6 +46,27 @@ TEST(CWord, Push) {
   EXPECT_EQ(CWord({2, 1, 3, 2 }), w);
 } 
 
+inline unsigned int GetLabel(unsigned int i) {
+  i %= (2 * CWord::kAlphabetSize);
+  return i / CWord::kAlphabetSize + 2 * (i % CWord::kAlphabetSize);
+}
+
+TEST(CWord, PushFrontPopBack) {
+  CWord w;
+  for (auto i = 0u; i < CWord::kMaxLength; ++i) {
+    w.PushFront(GetLabel(i));
+    ASSERT_EQ(GetLabel(i), w.GetFront());
+    ASSERT_EQ(GetLabel(0), w.GetBack());
+  }
+  auto front_l = GetLabel(CWord::kMaxLength - 1);
+  for (auto i = 0u; i < CWord::kMaxLength; ++i) {
+    ASSERT_EQ(GetLabel(i), w.GetBack());
+    ASSERT_EQ(front_l, w.GetFront());
+    w.PopBack();
+  }
+} 
+
+
 TEST(CWord, CyclicShift) {
   CWord w = {0, 2, 1, 3, 0, 2, 1, 3, 0, 3, 1, 2, 0, 3, 1, 2};
   w.CyclicLeftShift(2);

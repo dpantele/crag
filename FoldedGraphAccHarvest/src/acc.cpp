@@ -126,7 +126,7 @@ void PermuteToMin(Word* w) {
 }
 
 void PermuteToMinWithInverse(Word* w) {
-  assert(w->GetFront() != FoldedGraph2::Inverse(w->GetBack()));
+  assert(w->Empty() || w->GetFront() != FoldedGraph2::Inverse(w->GetBack()));
 
   auto w_inv = *w;
   w_inv.Invert();

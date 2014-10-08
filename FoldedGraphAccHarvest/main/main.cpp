@@ -30,18 +30,50 @@ struct Stopwatch {
   using clock = std::chrono::high_resolution_clock;
   clock::duration duration_{0};
   clock::duration last_duration_{0};
-  clock::time_point last_click_;
-  uint64_t clicks_count_ = 0u;
+  uint64_t iterations_count_ = 0u;
 
-  void click() {
-    if (clicks_count_ % 2) {
-      last_duration_ = (clock::now() - last_click_);
-      duration_ += last_duration_;
-    } else {
-      last_click_ = clock::now();
+  typedef std::chrono::microseconds ResultUnits;
+
+  struct Iteration {
+    Stopwatch* stopwatch_;
+    clock::duration duration_{0};
+    clock::time_point last_click_;
+    uint64_t clicks_count_{0};
+
+    Iteration(Stopwatch* stopwatch)
+      : stopwatch_(stopwatch)
+    { }
+
+    inline bool IsRunning() const {
+      return clicks_count_ % 2 == 1;
     }
 
-    ++clicks_count_;
+    void Click() {
+      if (IsRunning()) {
+        duration_ += (clock::now() - last_click_);
+      } else {
+        last_click_ = clock::now();
+      }
+
+      ++clicks_count_;
+    }
+
+    ~Iteration() {
+      if (IsRunning()) {
+        Click();
+      }
+      stopwatch_->Report(this);
+    }
+  };
+
+  void Report(Iteration* iteration) {
+    ++iterations_count_;
+    duration_ += iteration->duration_;
+    last_duration_ = iteration->duration_;
+  }
+
+  Iteration NewIter() {
+    return Iteration(this);
   }
 
   typedef std::chrono::microseconds ResultUnits;
@@ -51,7 +83,7 @@ struct Stopwatch {
   }
 
   long long average() {
-    return std::chrono::duration_cast<ResultUnits>(duration_ / (clicks_count_ / 2)).count();
+    return iterations_count_ ? std::chrono::duration_cast<ResultUnits>(duration_ / iterations_count_).count() : 0;
   }
 };
 
@@ -160,10 +192,10 @@ int main(int argc, const char *argv[]) {
   }
 
   int counter = 0;
-  Stopwatch folding_time;
-  Stopwatch harvest_time;
-  Stopwatch normalize_time;
-  Stopwatch reweight_time;
+  Stopwatch folding_time_total;
+  Stopwatch harvest_time_total;
+  Stopwatch normalize_time_total;
+  Stopwatch reweight_time_total;
 
   while (!all_pairs.count(required) && !unprocessed_pairs.empty()) {
     ++counter;
@@ -205,39 +237,43 @@ int main(int argc, const char *argv[]) {
       }
     }
 
-    folding_time.click();
+    auto folding_time = folding_time_total.NewIter();
+    folding_time.Click();
     FoldedGraph2 g;
     g.PushCycle(u, g.root(), 1);
 
     for (auto i = 0u; i < complete_count[v.size()]; ++i) {
       g.CompleteWith(v);
     }
-    folding_time.click();
+    folding_time.Click();
 
     if (estats_out.is_open()) {
       estats_out << g.size() << ", ";
       estats_out << g.CountNontrivialEdges() << ", ";
     }
 
-    reweight_time.click();
+    auto reweight_time = reweight_time_total.NewIter();
+    reweight_time.Click();
     g.Reweight();
-    reweight_time.click();
+    reweight_time.Click();
 
     if (estats_out.is_open()) {
       estats_out << g.CountNontrivialEdges() << ", ";
     }
 
-    harvest_time.click();
+    auto harvest_time = harvest_time_total.NewIter();
+    harvest_time.Click();
     auto eq_u = g.Harvest(max_harvest_length, g.root());
-    harvest_time.click();
+    harvest_time.Click();
 
     if (estats_out.is_open()) {
       estats_out << eq_u.size() << ", ";
     }
 
-    normalize_time.click();
+    auto normalize_time = normalize_time_total.NewIter();
+    normalize_time.Click();
     GetCanonicalPairs(&v, &eq_u);
-    normalize_time.click();
+    normalize_time.Click();
 
     if (estats_out.is_open()) {
       estats_out << eq_u.size() << ", ";
@@ -276,19 +312,19 @@ int main(int argc, const char *argv[]) {
       }
     }
 
-    *out << ", " << folding_time.last() << ", ";
-    *out << harvest_time.last() << std::endl;
+    *out << ", " << folding_time_total.last() << ", ";
+    *out << harvest_time_total.last() << std::endl;
 
     if (estats_out.is_open()) {
       estats_out << ", ";
-      estats_out << folding_time.last() << ", ";
-      estats_out << folding_time.average() << ", ";
-      estats_out << reweight_time.last() << ", ";
-      estats_out << reweight_time.average() << ", ";
-      estats_out << harvest_time.last() << ", ";
-      estats_out << harvest_time.average() << ", ";
-      estats_out << normalize_time.last() << ", ";
-      estats_out << normalize_time.average() << "\n";
+      estats_out << folding_time_total.last() << ", ";
+      estats_out << folding_time_total.average() << ", ";
+      estats_out << reweight_time_total.last() << ", ";
+      estats_out << reweight_time_total.average() << ", ";
+      estats_out << harvest_time_total.last() << ", ";
+      estats_out << harvest_time_total.average() << ", ";
+      estats_out << normalize_time_total.last() << ", ";
+      estats_out << normalize_time_total.average() << "\n";
     }
 
     out->flush();

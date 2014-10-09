@@ -160,6 +160,13 @@ public:
   //! Harvest all cycles of defined weight of length less thatn @ref k
   std::vector<Word> Harvest(Word::size_type k, Weight w = 0);
 
+  Word RestoreConjugator(const Word& harvested_word) const {
+    return GetPathFromRoot(RestoreHarvestVertex(harvested_word));
+  }
+
+  Vertex RestoreHarvestVertex(const Word& harvested_word) const;
+  Word GetPathFromRoot(Vertex v) const;
+
 
   //! Returns true if vertices are equal
   bool Equal(Vertex v1, Vertex v2);

@@ -204,14 +204,18 @@ void MinimizeTotalLength(Word* u, Word* v, size_t max_length = 0) {
   while (progress) {
     progress = false;
     for (auto&& morphism : morphisms) {
-      auto u_image = Map(*u, morphism);
-      auto v_image = Map(*v, morphism);
-      if (u_image.size() + v_image.size() < u->size() + v->size() && 
-        (max_length == 0 || (u_image.size() <= max_length && v_image.size() <= max_length))) {
-          *u = u_image;
-          *v = v_image;
-          progress = true;
-          break;
+      try {
+        auto u_image = Map(*u, morphism);
+        auto v_image = Map(*v, morphism);
+        if (u_image.size() + v_image.size() < u->size() + v->size() && 
+          (max_length == 0 || (u_image.size() <= max_length && v_image.size() <= max_length))) {
+            *u = u_image;
+            *v = v_image;
+            progress = true;
+            break;
+        }
+      } catch(std::length_error&) {
+        continue;
       }
     }
   }

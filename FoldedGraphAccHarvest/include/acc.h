@@ -67,8 +67,8 @@ void Invert(InputIterator first, InputIterator last) {
 
 std::vector<Word> ReduceAndMinCycle(std::vector<Word>);
 
-std::pair<Word, Word> GetCanonicalPair(const char* u, const char* v);
-std::pair<Word, Word> GetCanonicalPair(Word u, Word v);
+std::pair<Word, Word> GetCanonicalPair(const char* u, const char* v, size_t max_length = 0);
+std::pair<Word, Word> GetCanonicalPair(Word u, Word v, size_t max_length = 0);
 void GetCanonicalPairs(Word* u, std::vector<Word>* vs);
 
 //! w -> s^(-1) w s

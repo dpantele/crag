@@ -48,6 +48,16 @@ Word Map(Word w, const Mapping& mapping) {
   return result;
 }
 
+typedef std::array<Word, 2 * Word::kAlphabetSize> Morphism;
+Word Map(Word w, const Morphism& mapping) {
+  Word result;
+  while(!w.Empty()) {
+    result.PushBack(mapping[w.GetFront()]);
+    w.PopFront();
+  }
+  return result;
+}
+
 Mapping MapToMin(Word* w) {
   Mapping result = {0, 1, 2, 3};
   if (w->Empty()) {
@@ -174,13 +184,47 @@ void ReduceMapAndMinCycle(const Mapping& mapping, Word* w) {
   PermuteToMinWithInverse(w);
 }
 
-std::pair<Word, Word> GetCanonicalPair(Word u, Word v) {
+void MinimizeTotalLength(Word* u, Word* v, size_t max_length = 0) {
+  static const std::array<Word, 2 * FoldedGraph2::kAlphabetSize> morphisms[] = {
+      {Word("yx"), Word("XY"), Word("y"), Word("Y")},
+      {Word("Yx"), Word("Xy"), Word("y"), Word("Y")},
+      {Word("xy"), Word("YX"), Word("y"), Word("Y")},
+      {Word("xY"), Word("yX"), Word("y"), Word("Y")},
+      {Word("yxY"), Word("yXY"), Word("y"), Word("Y")},
+      {Word("Yxy"), Word("YXy"), Word("y"), Word("Y")},
+      {Word("x"), Word("X"), Word("yx"), Word("XY")},
+      {Word("x"), Word("X"), Word("yX"), Word("xY")},
+      {Word("x"), Word("X"), Word("xy"), Word("YX")},
+      {Word("x"), Word("X"), Word("Xy"), Word("Yx")},
+      {Word("x"), Word("X"), Word("xyX"), Word("xYX")},
+      {Word("x"), Word("X"), Word("Xyx"), Word("XYx")},
+  };
+
+  bool progress = true;
+  while (progress) {
+    progress = false;
+    for (auto&& morphism : morphisms) {
+      auto u_image = Map(*u, morphism);
+      auto v_image = Map(*v, morphism);
+      if (u_image.size() + v_image.size() < u->size() + v->size() && 
+        (max_length == 0 || (u_image.size() <= max_length && v_image.size() <= max_length))) {
+          *u = u_image;
+          *v = v_image;
+          progress = true;
+          break;
+      }
+    }
+  }
+}
+
+std::pair<Word, Word> GetCanonicalPair(Word u, Word v, size_t max_length) {
+  MinimizeTotalLength(&u, &v, max_length);
   auto mapping = MapToMinWithInverse(&u);
   ReduceMapAndMinCycle(mapping, &v);
   return std::make_pair(u, v);
 }
 
-std::pair<Word, Word> GetCanonicalPair(const char* u_string, const char* v_string) {
+std::pair<Word, Word> GetCanonicalPair(const char* u_string, const char* v_string, size_t max_length) {
   return GetCanonicalPair(Word(u_string), Word(v_string));
 }
 

@@ -175,8 +175,8 @@ int main(int argc, const char *argv[]) {
     estats_out << "\n";
   }
 
-  auto initial = Swapped(GetCanonicalPair(initial_strings.first.c_str(), initial_strings.second.c_str()));
-  auto required = Swapped(GetCanonicalPair(required_strings.first.c_str(), required_strings.second.c_str()));
+  auto initial = Swapped(GetCanonicalPair(initial_strings.first.c_str(), initial_strings.second.c_str(), max_harvest_length));
+  auto required = Swapped(GetCanonicalPair(required_strings.first.c_str(), required_strings.second.c_str(), max_harvest_length));
 
   std::set<std::pair<Word, Word>> unprocessed_pairs = {initial};
   std::set<std::pair<Word, Word>> all_pairs = {initial};
@@ -222,7 +222,7 @@ int main(int argc, const char *argv[]) {
       proc_words << "\n";
     }
 
-    auto exists = all_pairs.insert(Swapped(GetCanonicalPair(v, u)));
+    auto exists = all_pairs.insert(Swapped(GetCanonicalPair(v, u, max_harvest_length)));
     if (exists.second) {
       unprocessed_pairs.emplace(*exists.first);
 
@@ -270,18 +270,13 @@ int main(int argc, const char *argv[]) {
 
     auto normalize_time = normalize_time_total.NewIter();
     normalize_time.Click();
-    GetCanonicalPairs(&v, &eq_u);
-    normalize_time.Click();
 
-    if (estats_out.is_open()) {
-      estats_out << eq_u.size() << ", ";
-      estats_out << u.size() << ", ";
-      estats_out << v.size() << ", ";
-    }
+    auto pairs_count_before = all_pairs.size();
 
     std::bitset<Word::kMaxLength> available_sizes;
     for (auto u_p = eq_u.begin(); u_p != eq_u.end(); ++u_p) {
-      auto exists = all_pairs.emplace(*u_p, v);
+      auto new_pair = GetCanonicalPair(v, *u_p, max_harvest_length);
+      auto exists = all_pairs.emplace(new_pair);
       if (exists.second) {
         if (u_p->size() > 0) {
           available_sizes.set(u_p->size() - 1);
@@ -295,6 +290,14 @@ int main(int argc, const char *argv[]) {
           unproc_words << "\n";
         }
       }
+    }
+
+    normalize_time.Click();
+
+    if (estats_out.is_open()) {
+      estats_out << all_pairs.size() - pairs_count_before << ", ";
+      estats_out << u.size() << ", ";
+      estats_out << v.size() << ", ";
     }
 
     bool is_first = true;

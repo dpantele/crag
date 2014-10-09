@@ -175,8 +175,8 @@ int main(int argc, const char *argv[]) {
     estats_out << "\n";
   }
 
-  auto initial = Swapped(GetCanonicalPair(initial_strings.first.c_str(), initial_strings.second.c_str(), max_harvest_length));
-  auto required = Swapped(GetCanonicalPair(required_strings.first.c_str(), required_strings.second.c_str(), max_harvest_length));
+  auto initial = Swapped(GetCanonicalPair(initial_strings.first.c_str(), initial_strings.second.c_str()));
+  auto required = Swapped(GetCanonicalPair(required_strings.first.c_str(), required_strings.second.c_str()));
 
   std::set<std::pair<Word, Word>> unprocessed_pairs = {initial};
   std::set<std::pair<Word, Word>> all_pairs = {initial};
@@ -222,7 +222,7 @@ int main(int argc, const char *argv[]) {
       proc_words << "\n";
     }
 
-    auto exists = all_pairs.insert(Swapped(GetCanonicalPair(v, u, max_harvest_length)));
+    auto exists = all_pairs.insert(Swapped(GetCanonicalPair(v, u)));
     if (exists.second) {
       unprocessed_pairs.emplace(*exists.first);
 
@@ -275,7 +275,7 @@ int main(int argc, const char *argv[]) {
 
     std::bitset<Word::kMaxLength> available_sizes;
     for (auto u_p = eq_u.begin(); u_p != eq_u.end(); ++u_p) {
-      auto new_pair = GetCanonicalPair(v, *u_p, max_harvest_length);
+      auto new_pair = GetCanonicalPair(v, *u_p);
       auto exists = all_pairs.emplace(new_pair);
       if (exists.second) {
         if (u_p->size() > 0) {

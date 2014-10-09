@@ -677,6 +677,68 @@ std::vector<Word> FoldedGraph2::Harvest(size_t k, Weight w) {
   return result;
 }
 
+Vertex FoldedGraph2::RestoreHarvestVertex(const Word& harvested_word) const {
+  std::vector<Word> result;
+
+  static const Weight w = 1;
+
+  for(auto v = root(); v < edges_.size(); ++v) {
+    if(edges_[v].combined_with_) {
+      continue;
+    }
+
+    for(auto label = 0u; label < 2 * kAlphabetSize; ++label) {
+      if (edges_[v].edges_[label] == kNullVertex) {
+        continue;
+      }
+
+      if (edges_[v].weights_[label] == 0) {
+        continue;
+      }
+
+      FoldedGraph2::HarvestPath path = {std::make_tuple(
+        edges_[v].edges_[label], 
+        Word({label}), 
+        edges_[v].weights_[label]
+      )};
+
+      Harvest(harvested_word.size(), v, w, &path, &result);
+      if (std::binary_search(result.begin(), result.end(), harvested_word)) {
+        return v;
+      }
+    }
+  }
+
+  return kNullVertex;
+}
+
+Word FoldedGraph2::GetPathFromRoot(Vertex v) const {
+  std::map<Vertex, Word> paths = {{root(), Word{ }}};
+  std::deque<Vertex> to_do = {root()};
+
+  while (!to_do.empty() && paths.count(v) == 0) {
+    auto n = to_do.front();
+    to_do.pop_front();
+
+    auto current_path = paths[n];
+    assert(!current_path.Empty());
+    Label l = 0;
+    for (auto&& edge : edges_[n].edges_) {
+      if (edge) {
+        auto next_path = current_path;
+        next_path.PushBack(l);
+        auto is_new = paths.emplace(edge, next_path);
+        if (is_new.second) {
+          to_do.push_back(edge);
+        }
+      }
+      ++l;
+    }
+  }
+
+  return paths[v];
+}
+
 void FoldedGraph2::PrintAsDot(std::ostream* out) const {
   (*out) << "digraph {\n  edge [arrowtail=dot,arrowhead=vee,arrowsize=0.5];\n  1 [color=blue];\n";
   int i = -1;

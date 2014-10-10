@@ -275,7 +275,7 @@ int main(int argc, const char *argv[]) {
 
     std::bitset<Word::kMaxLength> available_sizes;
     for (auto u_p = eq_u.begin(); u_p != eq_u.end(); ++u_p) {
-      auto new_pair = GetCanonicalPair(v, *u_p);
+      auto new_pair = Swapped(GetCanonicalPair(v, *u_p));
       auto exists = all_pairs.emplace(new_pair);
       if (exists.second) {
         if (u_p->size() > 0) {

@@ -184,21 +184,28 @@ void ReduceMapAndMinCycle(const Mapping& mapping, Word* w) {
   PermuteToMinWithInverse(w);
 }
 
+Word Inverse(Word w) {
+  w.Invert();
+  return w;
+}
+
 void MinimizeTotalLength(Word* u, Word* v, size_t max_length = 0) {
+#define MORPHISM(X, Y) {Word(X), Inverse(Word(X)), Word(Y), Inverse(Word(Y))}
   static const std::array<Word, 2 * FoldedGraph2::kAlphabetSize> morphisms[] = {
-      {Word("yx"), Word("XY"), Word("y"), Word("Y")},
-      {Word("Yx"), Word("Xy"), Word("y"), Word("Y")},
-      {Word("xy"), Word("YX"), Word("y"), Word("Y")},
-      {Word("xY"), Word("yX"), Word("y"), Word("Y")},
-      {Word("yxY"), Word("yXY"), Word("y"), Word("Y")},
-      {Word("Yxy"), Word("YXy"), Word("y"), Word("Y")},
-      {Word("x"), Word("X"), Word("yx"), Word("XY")},
-      {Word("x"), Word("X"), Word("yX"), Word("xY")},
-      {Word("x"), Word("X"), Word("xy"), Word("YX")},
-      {Word("x"), Word("X"), Word("Xy"), Word("Yx")},
-      {Word("x"), Word("X"), Word("xyX"), Word("xYX")},
-      {Word("x"), Word("X"), Word("Xyx"), Word("XYx")},
+    MORPHISM("yx", "y"),
+    MORPHISM("Yx", "y"),
+    MORPHISM("xy", "y"),
+    MORPHISM("xY", "y"),
+    MORPHISM("yxY", "y"),
+    MORPHISM("Yxy", "y"),
+    MORPHISM("x", "yx"),
+    MORPHISM("x", "yX"),
+    MORPHISM("x", "xy"),
+    MORPHISM("x", "Xy"),
+    MORPHISM("x", "Xyx"),
+    MORPHISM("x", "xyX"),
   };
+#undef MORPHISM
 
   bool progress = true;
   while (progress) {

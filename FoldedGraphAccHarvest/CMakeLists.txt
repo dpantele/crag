@@ -14,4 +14,4 @@ crag_test(acc FoldedGraph2 AccHarvest)
 crag_main(main AccHarvest)
 crag_main(auto_check AccHarvest)
 crag_main(compare_generated_words AccHarvest)
-
+crag_main(pick_random_pairs AccHarvest)

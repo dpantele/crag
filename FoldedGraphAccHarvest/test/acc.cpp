@@ -223,6 +223,7 @@ NewOrbitElements ProduceAutomorhicOrbit(const NewOrbitElements& just_added_elems
 
 #define PAIR(X, Y) std::make_pair(Word(X), Word(Y))
 static const std::pair<Word, Word> random_pairs[] = {
+  PAIR("xyyxY", "xxxxyXXYxy"),
   PAIR("xyxYXY", "xxxYYYY"),
   PAIR("xyxyXYY", "xyxyxYYXy"),
   PAIR("xxYxyXXY", "xxyXXyxYY"),
@@ -230,7 +231,6 @@ static const std::pair<Word, Word> random_pairs[] = {
   PAIR("xyXYYxyy", "xxyXYXy"),
   PAIR("xyxYxYxyXY", "xyxYxyXYY"),
   PAIR("xxYXyxxYY", "xxYYxYYxy"),
-  PAIR("xyyxY", "xxxxyXXYxy"),
   PAIR("xyxYXYYXy", "xyxYYYYXY"),
   PAIR("xxyXYXy", "xyyxYYXy"),
   PAIR("xxYYXyyXy", "xxYxyXXY"),

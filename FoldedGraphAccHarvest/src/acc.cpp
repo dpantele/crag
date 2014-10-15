@@ -251,19 +251,6 @@ std::set<std::pair<Word, Word>> MinimizeTotalLength(Word u, Word v, size_t max_l
 }
 
 std::pair<Word, Word> GetCanonicalPair(Word u, Word v, size_t max_length) {
-#define MORPHISM(X, Y) {Word(X), Inverse(Word(X)), Word(Y), Inverse(Word(Y))}
-  static const Mapping morphisms[] = {
-    MORPHISM("x", "y"),
-    MORPHISM("x", "Y"),
-    MORPHISM("X", "y"),
-    MORPHISM("X", "Y"),
-    MORPHISM("y", "x"),
-    MORPHISM("y", "X"),
-    MORPHISM("Y", "x"),
-    MORPHISM("Y", "X"),
-  };
-#undef MORPHISM
-
   u = CyclicReduce(u);
   v = CyclicReduce(v);
 
@@ -285,20 +272,24 @@ std::pair<Word, Word> GetCanonicalPair(Word u, Word v, size_t max_length) {
     if (uv.first.size() != min_u_size && uv.second.size() != min_v_size) {
       continue;
     }
-    for(auto&& automorph : morphisms) {
-      auto up = uv.first;
-      auto vp = uv.second;
-      ReduceMapAndMinCycle(automorph, &up);
-      ReduceMapAndMinCycle(automorph, &vp);
+    auto up = uv.first;
+    auto u_min_mapping = MapToMinWithInverse(&up);
 
-      if (vp < up) {
-        std::swap(up, vp);
-      }
+    auto vp = uv.second;
+    auto v_min_mapping = MapToMinWithInverse(&vp);
 
-      if (up < u || (up == u && vp < v)) {
-        u = up;
-        v = vp;
-      }
+    if (vp < up) {
+      up = vp;
+      vp = uv.first;
+      ReduceMapAndMinCycle(v_min_mapping, &vp);
+    } else {
+      vp = uv.second;
+      ReduceMapAndMinCycle(u_min_mapping, &vp);
+    }
+
+    if (up < u || (up == u && vp < v)) {
+      u = up;
+      v = vp;
     }
   }
   return std::make_pair(u, v);

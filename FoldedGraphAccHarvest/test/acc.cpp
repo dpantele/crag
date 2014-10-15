@@ -141,20 +141,12 @@ std::pair<Word, Word> GetCanonicalPair(Word u, Word v) {
   PermuteToMinWithInverse(&u);
   PermuteToMinWithInverse(&v);
   for (auto&& uv : min_length_pairs) {
-    PrintTo(uv.first, &std::cout);
-    std::cout << std::endl;
-    PrintTo(uv.second, &std::cout);
-    std::cout << std::endl;
     for(auto&& automorph : morphisms) {
 
       auto up = uv.first;
       auto vp = uv.second;
       ReduceMapAndMinCycle(automorph, &up);
       ReduceMapAndMinCycle(automorph, &vp);
-      PrintTo(up, &std::cout);
-      std::cout << std::endl;
-      PrintTo(vp, &std::cout);
-      std::cout << std::endl;
 
       if (vp < up) {
         std::swap(up, vp);
@@ -215,10 +207,10 @@ NewOrbitElements ProduceAutomorhicOrbit(const NewOrbitElements& just_added_elems
           CyclicReduce(Map(just_added_elem->first.second, morhpism))
         );
 
-        //if (images.first.size() > 16 || images.second.size() > 16) {
-        //  ++morphism_id;
-        //  continue;
-        //}
+        if (images.first.size() > 16 || images.second.size() > 16) {
+          ++morphism_id;
+          continue;
+        }
 
         auto new_elem = full_orbit->emplace(images, just_added_elem->second);
         if (new_elem.second) {
@@ -387,8 +379,6 @@ TEST(GetCanonicalPair, Naive) {
     std::cout << produce_auto_orbit_time_watch.average() << std::endl;
 
     std::cout << pairs.size() << std::endl;
-
-    continue;
 
     auto initial_pair_canonical = naive_get_canonical_pair::GetCanonicalPair(initial_pair.first, initial_pair.second);
     auto pair_count = 0u;

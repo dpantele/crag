@@ -115,8 +115,6 @@ void PermuteToMin(Word* w) {
   if (w->Empty()) return;
 
   auto current_permutation = *w;
-  //PrintTo(*w, &std::cout);
-  //std::cout << std::endl;
   for (auto i = 0u; i < w->size() - 1; ++i) {
     current_permutation.CyclicLeftShift();
     if (current_permutation < *w) {
@@ -170,8 +168,6 @@ Mapping MapToMinWithInverse(Word* w) {
 
 void ReduceMapAndMinCycle(const Mapping& mapping, Word* w) {
   *w = Map(*w, mapping);
-  PrintTo(*w, &std::cout);
-  std::cout << std::endl;
   *w = CyclicReduce(*w);
   PermuteToMinWithInverse(w);
 }
@@ -254,6 +250,45 @@ std::set<std::pair<Word, Word>> MinimizeTotalLength(Word u, Word v, size_t max_l
   return min_length_pairs;
 }
 
+std::pair<Word, Word> GetOrbitCanonicalPair(const Word& u, const Word& v, size_t max_length) {
+#define MORPHISM(X, Y) {Word(X), Inverse(Word(X)), Word(Y), Inverse(Word(Y))}
+  static const Mapping morphisms[] = {
+    MORPHISM("x", "y"),
+    MORPHISM("x", "Y"),
+    MORPHISM("X", "y"),
+    MORPHISM("X", "Y"),
+    MORPHISM("y", "x"),
+    MORPHISM("y", "X"),
+    MORPHISM("Y", "x"),
+    MORPHISM("Y", "X"),
+  };
+#undef MORPHISM
+
+  assert(u == CyclicReduce(u));
+  assert(v == CyclicReduce(v));
+
+  auto u_min = u;
+  auto v_min = v;
+  for(auto&& automorph : morphisms) {
+    auto up = u;
+    auto vp = v;
+    ReduceMapAndMinCycle(automorph, &up);
+    ReduceMapAndMinCycle(automorph, &vp);
+
+    if (vp < up) {
+      std::swap(up, vp);
+    }
+
+    if (up < u_min || (up == u_min && vp < v_min)) {
+      u_min = up;
+      v_min = vp;
+    }
+  }
+  return std::make_pair(u_min, v_min);
+
+}
+
+
 std::pair<Word, Word> GetCanonicalPair(Word u, Word v, size_t max_length) {
   u = CyclicReduce(u);
   v = CyclicReduce(v);
@@ -271,49 +306,19 @@ std::pair<Word, Word> GetCanonicalPair(Word u, Word v, size_t max_length) {
   std::tie(u, v) = *min_length_pairs.begin();
   PermuteToMinWithInverse(&u);
   PermuteToMinWithInverse(&v);
+
+  auto current_min = std::make_pair(u, v);
+
   for (auto&& uv : min_length_pairs) {
     if (uv.first.size() != min_size && uv.second.size() != min_size) {
       continue;
     }
-    auto up = uv.first;
-    auto vp = uv.second;
-    if (up.size() > vp.size()) {
-      std::swap(up, vp);
-    }
-
-    std::cout << "!!!!!!!!\n";
-    PrintTo(up, &std::cout);
-    std::cout << std::endl;
-    auto u_min_mapping = MapToMinWithInverse(&up);
-    std::cout << "!!!!!!!!\n";
-    PrintTo(up, &std::cout);
-    std::cout << std::endl;
-
-    if (vp.size() == up.size()) {
-      auto v_min_mapping = MapToMinWithInverse(&vp);
-
-      if (vp < up) {
-        up = vp;
-        vp = uv.first;
-        ReduceMapAndMinCycle(v_min_mapping, &vp);
-      } else {
-        vp = uv.second;
-        ReduceMapAndMinCycle(u_min_mapping, &vp);
-      }
-    } else {
-      ReduceMapAndMinCycle(u_min_mapping, &vp);
-    } 
-    
-    if (up < u || (up == u && vp < v)) {
-      PrintTo(vp, &std::cout);
-      vp.Invert();
-      PrintTo(vp, &std::cout);
-      vp.Invert();
-      u = up;
-      v = vp;
+    auto new_candidate = GetOrbitCanonicalPair(uv.first, uv.second, max_length);
+    if (new_candidate < current_min) {
+      current_min = new_candidate;
     }
   }
-  return std::make_pair(u, v);
+  return current_min;
 }
 
 //std::pair<Word, Word> GetCanonicalPair(Word u, Word v, size_t max_length) {

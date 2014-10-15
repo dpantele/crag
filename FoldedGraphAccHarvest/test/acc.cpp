@@ -141,11 +141,20 @@ std::pair<Word, Word> GetCanonicalPair(Word u, Word v) {
   PermuteToMinWithInverse(&u);
   PermuteToMinWithInverse(&v);
   for (auto&& uv : min_length_pairs) {
+    PrintTo(uv.first, &std::cout);
+    std::cout << std::endl;
+    PrintTo(uv.second, &std::cout);
+    std::cout << std::endl;
     for(auto&& automorph : morphisms) {
+
       auto up = uv.first;
       auto vp = uv.second;
       ReduceMapAndMinCycle(automorph, &up);
       ReduceMapAndMinCycle(automorph, &vp);
+      PrintTo(up, &std::cout);
+      std::cout << std::endl;
+      PrintTo(vp, &std::cout);
+      std::cout << std::endl;
 
       if (vp < up) {
         std::swap(up, vp);
@@ -206,6 +215,11 @@ NewOrbitElements ProduceAutomorhicOrbit(const NewOrbitElements& just_added_elems
           CyclicReduce(Map(just_added_elem->first.second, morhpism))
         );
 
+        //if (images.first.size() > 16 || images.second.size() > 16) {
+        //  ++morphism_id;
+        //  continue;
+        //}
+
         auto new_elem = full_orbit->emplace(images, just_added_elem->second);
         if (new_elem.second) {
           new_elem.first->second.push_back(morphism_id);
@@ -265,6 +279,12 @@ TEST(GetCanonicalPair, Naive3) {
   EXPECT_EQ(expected, naive_get_canonical_pair::GetCanonicalPair(initial.first, initial.second)) << ::testing::PrintToString(MinimizeTotalLength(initial.first, initial.second));
 }
 
+TEST(GetCanonicalPair, Naive4) {
+  auto initial = std::make_pair(Word("xyxYY"), Word("xYxYxYxyXyXYx"));
+  auto expected = std::make_pair(Word("xxyXy"), Word("xyXYYxyyyy"));
+  naive_get_canonical_pair::GetCanonicalPair(Word("xyyxY"), Word("xxxxyXXYxy"));
+  EXPECT_EQ(expected, GetCanonicalPair(initial.first, initial.second)) << ::testing::PrintToString(MinimizeTotalLength(initial.first, initial.second));
+}
 
 
 size_t count_size_16_and_less(const Orbit& pairs) {
@@ -346,32 +366,34 @@ TEST(GetCanonicalPair, Naive) {
       auto produce_auto_orbit_time = produce_auto_orbit_time_watch.NewIter();
 
       auto i = 0;
-      while (++i < 7) {
+      while (++i < 2) {
         produce_auto_orbit_time.Click();
         next_elements = ProduceAutomorhicOrbit(next_elements, &pairs);
         produce_auto_orbit_time.Click();
       }
 
-      //auto old_size = 0u;
-      //auto new_size = pairs.size();
-      //while (old_size < new_size) {
-      //  old_size = new_size;
-      //  produce_auto_orbit_time.Click();
-      //  next_elements = ProduceAutomorhicOrbit(next_elements, &pairs);
-      //  produce_auto_orbit_time.Click();
-      //  new_size = count_size_16_and_less(pairs);
-      //  std::cout << ++i << ": " << new_size << std::endl;
-      //}
+      auto old_size = 0u;
+      auto new_size = count_size_16_and_less(pairs);
+      while (old_size < new_size) {
+        old_size = new_size;
+        produce_auto_orbit_time.Click();
+        next_elements = ProduceAutomorhicOrbit(next_elements, &pairs);
+        produce_auto_orbit_time.Click();
+        new_size = count_size_16_and_less(pairs);
+        std::cout << ++i << ": " << new_size << std::endl;
+      }
     }
 
     std::cout << produce_auto_orbit_time_watch.average() << std::endl;
 
     std::cout << pairs.size() << std::endl;
 
+    continue;
+
     auto initial_pair_canonical = naive_get_canonical_pair::GetCanonicalPair(initial_pair.first, initial_pair.second);
     auto pair_count = 0u;
     for (auto&& pair : pairs) {
-      ASSERT_EQ(initial_pair_canonical, naive_get_canonical_pair::GetCanonicalPair(pair.first.first, pair.first.second)) 
+      ASSERT_EQ(initial_pair_canonical, GetCanonicalPair(pair.first.first, pair.first.second)) 
         << pair.first.first << ',' << pair.first.second << "; " 
         << initial_pair.first << ", " << initial_pair.second << "; "
         << ::testing::PrintToString(pair.second);

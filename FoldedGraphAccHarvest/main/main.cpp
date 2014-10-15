@@ -372,7 +372,7 @@ int main(int argc, const char *argv[]) {
       }
 
       normalize_time.Click();
-      auto new_pair = GetCanonicalPair(new_pair.first, new_pair.second);
+      new_pair = GetCanonicalPair(new_pair.first, new_pair.second);
       normalize_time.Click();
   
       if (AddPair(new_pair)) {

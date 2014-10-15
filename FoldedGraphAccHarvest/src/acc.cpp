@@ -327,6 +327,64 @@ std::pair<Word, Word> GetCanonicalPair(Word u, Word v, size_t max_length) {
   return current_min;
 }
 
+std::set<std::pair<Word, Word>> MakeFullOrbit(const Word& u, const Word& v, size_t max_length) {
+#define MORPHISM(X, Y) {Word(X), Inverse(Word(X)), Word(Y), Inverse(Word(Y))}
+  static const Mapping morphisms[] = {
+    MORPHISM("yx", "y"),  //8
+    MORPHISM("Yx", "y"),  //9
+    MORPHISM("xy", "y"),  //10
+    MORPHISM("xY", "y"),  //11
+    MORPHISM("yxY", "y"), //12
+    MORPHISM("Yxy", "y"), //13
+    MORPHISM("x", "yx"),  //14
+    MORPHISM("x", "yX"),  //15
+    MORPHISM("x", "xy"),  //16
+    MORPHISM("x", "Xy"),  //17
+    MORPHISM("x", "Xyx"), //18
+    MORPHISM("x", "xyX"), //19
+  };
+#undef MORPHISM
+  std::set<std::pair<Word, Word>> full_orbit;
+  std::vector<std::set<std::pair<Word, Word>>::const_iterator> unprocessed_elements;
+  std::vector<std::set<std::pair<Word, Word>>::const_iterator> new_unprocessed_elements;
+
+  auto AddNewPair = [&full_orbit, &new_unprocessed_elements](const std::pair<Word, Word>& pair) {
+    auto insert_result = full_orbit.emplace(GetOrbitCanonicalPair(pair.first, pair.second));
+    if (insert_result.second) {
+      new_unprocessed_elements.push_back(insert_result.first);
+    }
+  };
+
+  AddNewPair(std::make_pair(u, v));
+  AddNewPair(std::make_pair(v, u));
+
+  while (!new_unprocessed_elements.empty()) {
+    std::swap(unprocessed_elements, new_unprocessed_elements);
+    new_unprocessed_elements.clear();
+    for (auto&& just_added_elem : unprocessed_elements) {
+      for (auto&& morhpism : morphisms) {
+        try {
+          auto images = std::make_pair(
+            CyclicReduce(Map(just_added_elem->first, morhpism)),
+            CyclicReduce(Map(just_added_elem->second, morhpism))
+          );
+
+          if (max_length != 0 && (images.first.size() > max_length || images.second.size() > max_length)) {
+            continue;
+          }
+
+          AddNewPair(images);
+          AddNewPair(std::make_pair(images.second, images.first));
+        } catch(std::length_error&) {
+          //it's ok
+        }
+      }
+    }
+  }
+
+  return full_orbit;
+}
+
 //std::pair<Word, Word> GetCanonicalPair(Word u, Word v, size_t max_length) {
 //  MapToMinWithInverse(&u);
 //  MapToMinWithInverse(&v);

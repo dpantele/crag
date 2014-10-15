@@ -90,6 +90,29 @@ std::pair<V, U> Swapped(std::pair<U, V> p) {
   return std::pair<V, U>(std::move(p.second), std::move(p.first));
 }
 
+Word Inverse(Word u) {
+  u.Invert();
+  return u;
+}
+
+#define MORPHISM(X, Y) {Word(X), Inverse(Word(X)), Word(Y), Inverse(Word(Y))}
+static const Mapping length_changing_autos[] = {
+  MORPHISM("yx", "y"),  //8
+  MORPHISM("Yx", "y"),  //9
+  MORPHISM("xy", "y"),  //10
+  MORPHISM("xY", "y"),  //11
+  MORPHISM("yxY", "y"), //12
+  MORPHISM("Yxy", "y"), //13
+  MORPHISM("x", "yx"),  //14
+  MORPHISM("x", "yX"),  //15
+  MORPHISM("x", "xy"),  //16
+  MORPHISM("x", "Xy"),  //17
+  MORPHISM("x", "Xyx"), //18
+  MORPHISM("x", "xyX"), //19
+};
+#undef MORPHISM
+
+
 int main(int argc, const char *argv[]) {
   size_t max_harvest_length = Word::kMaxLength;
   std::vector<uint16_t> complete_count(Word::kMaxLength + 1, 2);
@@ -175,24 +198,78 @@ int main(int argc, const char *argv[]) {
     estats_out << "\n";
   }
 
-  auto initial = Swapped(GetCanonicalPair(initial_strings.first.c_str(), initial_strings.second.c_str()));
-  auto required = Swapped(GetCanonicalPair(required_strings.first.c_str(), required_strings.second.c_str()));
+  auto initial = GetCanonicalPair(initial_strings.first.c_str(), initial_strings.second.c_str());
+  auto required = GetCanonicalPair(required_strings.first.c_str(), required_strings.second.c_str());
 
   std::set<std::pair<Word, Word>> unprocessed_pairs = {};
   std::set<std::pair<Word, Word>> all_pairs = {};
 
   int counter = 0;
 
-  auto AddPair = [&unprocessed_pairs, &all_pairs, &unproc_words, &counter](const std::pair<Word, Word>& pair) -> bool {
-    auto exists = all_pairs.insert(pair);
-    if (exists.second) {
-      unprocessed_pairs.insert(pair);
-      if (unproc_words.is_open()) {
-        unproc_words << counter << ", ";
-        PrintWord(pair.second, &unproc_words);
-        unproc_words << ", ";
-        PrintWord(pair.first, &unproc_words);
-        unproc_words << "\n";
+  std::vector<std::set<std::pair<Word, Word>>::const_iterator> unprocessed_elements;
+  std::vector<std::set<std::pair<Word, Word>>::const_iterator> new_unprocessed_elements;
+
+  //wrong naming - actually it just used as something what adds pairs to 
+  auto AddPairToAll = [&all_pairs, &new_unprocessed_elements](const std::pair<Word, Word>& pair) -> bool {
+    auto insert_result = all_pairs.emplace(pair.first, pair.second);
+    if (insert_result.second) {
+      new_unprocessed_elements.push_back(insert_result.first);
+      return true;
+    }
+    return false;
+  };
+
+  auto AddPairAsUnprocessed = [&AddPairToAll, &unproc_words, &unprocessed_pairs, &counter](const std::pair<Word, Word>& pair) {
+    unprocessed_pairs.insert(pair);
+    if (unproc_words.is_open()) {
+      unproc_words << counter << ", ";
+      PrintWord(pair.second, &unproc_words);
+      unproc_words << ", ";
+      PrintWord(pair.first, &unproc_words);
+      unproc_words << "\n";
+    }
+  };
+
+  auto AddPair = [
+    &unprocessed_elements,
+    &new_unprocessed_elements, 
+    &AddPairAsUnprocessed, 
+    &AddPairToAll,
+    max_harvest_length
+  ](const std::pair<Word, Word>& pair) -> bool {
+    assert(pair == GetCanonicalPair(pair.first, pair.second));
+    unprocessed_elements.clear();
+    new_unprocessed_elements.clear();
+    if (AddPairToAll(pair)) {
+      AddPairAsUnprocessed(pair);
+      AddPairToAll(Swapped(pair));
+      AddPairAsUnprocessed(Swapped(pair));
+      
+      while (!new_unprocessed_elements.empty()) {
+        std::swap(unprocessed_elements, new_unprocessed_elements);
+        new_unprocessed_elements.clear();
+        for (auto&& just_added_elem : unprocessed_elements) {
+          for (auto&& morhpism : length_changing_autos) {
+            try {
+              auto images = std::make_pair(
+                CyclicReduce(Map(just_added_elem->first, morhpism)),
+                CyclicReduce(Map(just_added_elem->second, morhpism))
+              );
+
+              if (images.first.size() > max_harvest_length || images.second.size() > max_harvest_length) {
+                continue;
+              }
+
+              images = GetOrbitCanonicalPair(images.first, images.second);
+
+              if(AddPairToAll(images)) {
+                AddPairToAll(Swapped(images));
+              }
+            } catch(std::length_error&) {
+              //it's ok
+            }
+          }
+        }
       }
       return true;
     }
@@ -200,7 +277,6 @@ int main(int argc, const char *argv[]) {
   };
 
   AddPair(initial);
-  AddPair(Swapped(initial));
 
   Stopwatch folding_time_total;
   Stopwatch harvest_time_total;
@@ -291,12 +367,11 @@ int main(int argc, const char *argv[]) {
       auto new_pair = GetCanonicalPair(v, *u_p);
       normalize_time.Click();
   
-      if (AddPair(Swapped(new_pair))) {
+      if (AddPair(new_pair)) {
         if (u_p->size() > 0) {
           available_sizes.set(u_p->size() - 1);
         }
       }
-      AddPair(new_pair);
     }
 
     if (estats_out.is_open()) {

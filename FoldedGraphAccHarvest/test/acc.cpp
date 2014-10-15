@@ -168,9 +168,10 @@ Word Inverse(Word u) {
   return u;
 }
 
-typedef std::map<std::pair<Word, Word>, std::vector<size_t>> Orbit ;
+typedef std::map<std::pair<Word, Word>, std::vector<size_t>> Orbit;
+typedef std::vector<Orbit::const_iterator> NewOrbitElements;
 
-Orbit ProduceAutomorhicOrbit(const Orbit& current_orbit) {
+NewOrbitElements ProduceAutomorhicOrbit(const NewOrbitElements& just_added_elems, Orbit* full_orbit) {
 #define MORPHISM(X, Y) {Word(X), Inverse(Word(X)), Word(Y), Inverse(Word(Y))}
   static const Mapping morphisms[] = {
     MORPHISM("x", "y"),   //0
@@ -195,19 +196,23 @@ Orbit ProduceAutomorhicOrbit(const Orbit& current_orbit) {
     MORPHISM("x", "xyX"), //19
   };
 #undef MORPHISM
-  Orbit new_orbit;
-  for (auto&& elem : current_orbit) {
+  NewOrbitElements new_orbit;
+  for (auto&& just_added_elem : just_added_elems) {
     auto morphism_id = 0u;
     for (auto&& morhpism : morphisms) {
       try {
-        auto map_u = CyclicReduce(Map(elem.first.first, morhpism));
-        auto map_v = CyclicReduce(Map(elem.first.second, morhpism));
-        auto new_elem = new_orbit.emplace(std::make_pair(map_u, map_v), elem.second);
+        auto images = std::make_pair(
+          CyclicReduce(Map(just_added_elem->first.first, morhpism)),
+          CyclicReduce(Map(just_added_elem->first.second, morhpism))
+        );
+
+        auto new_elem = full_orbit->emplace(images, just_added_elem->second);
         if (new_elem.second) {
-          new_elem.first->second.emplace_back(morphism_id);
-        }
+          new_elem.first->second.push_back(morphism_id);
+          new_orbit.push_back(new_elem.first);
+        } 
       } catch(std::length_error&) {
-        continue;
+        //it's ok
       }
       ++morphism_id;
     }
@@ -272,23 +277,94 @@ size_t count_size_16_and_less(const Orbit& pairs) {
   return count;
 }
 
+struct Stopwatch {
+  using clock = std::chrono::high_resolution_clock;
+  clock::duration duration_{0};
+  clock::duration last_duration_{0};
+  uint64_t iterations_count_ = 0u;
+
+  typedef std::chrono::microseconds ResultUnits;
+
+  struct Iteration {
+    Stopwatch* stopwatch_;
+    clock::duration duration_{0};
+    clock::time_point last_click_;
+    uint64_t clicks_count_{0};
+
+    Iteration(Stopwatch* stopwatch)
+      : stopwatch_(stopwatch)
+    { }
+
+    inline bool IsRunning() const {
+      return clicks_count_ % 2 == 1;
+    }
+
+    void Click() {
+      if (IsRunning()) {
+        duration_ += (clock::now() - last_click_);
+      } else {
+        last_click_ = clock::now();
+      }
+
+      ++clicks_count_;
+    }
+
+    ~Iteration() {
+      if (IsRunning()) {
+        Click();
+      }
+      stopwatch_->Report(this);
+    }
+  };
+
+  void Report(Iteration* iteration) {
+    ++iterations_count_;
+    duration_ += iteration->duration_;
+    last_duration_ = iteration->duration_;
+  }
+
+  Iteration NewIter() {
+    return Iteration(this);
+  }
+
+  long long last() {
+    return std::chrono::duration_cast<ResultUnits>(last_duration_).count();
+  }
+
+  long long average() {
+    return iterations_count_ ? std::chrono::duration_cast<ResultUnits>(duration_ / iterations_count_).count() : 0;
+  }
+};
+
 TEST(GetCanonicalPair, Naive) {
   for (auto&& initial_pair : random_pairs) {
     Orbit pairs = {{initial_pair, {}}};
+    NewOrbitElements next_elements = {pairs.begin()};
+
+    Stopwatch produce_auto_orbit_time_watch;
+    {
+    auto produce_auto_orbit_time = produce_auto_orbit_time_watch.NewIter();
 
     auto i = 0;
     while (++i < 3) {
-      pairs = ProduceAutomorhicOrbit(pairs);
+      produce_auto_orbit_time.Click();
+      next_elements = ProduceAutomorhicOrbit(next_elements, &pairs);
+      produce_auto_orbit_time.Click();
     }
 
-/*    auto old_size = 0u;
+    auto old_size = 0u;
     auto new_size = pairs.size();
     while (old_size < new_size) {
       old_size = new_size;
-      pairs = ProduceAutomorhicOrbit(pairs);
+      produce_auto_orbit_time.Click();
+      next_elements = ProduceAutomorhicOrbit(next_elements, &pairs);
+      produce_auto_orbit_time.Click();
       new_size = count_size_16_and_less(pairs);
       std::cout << ++i << ": " << new_size << std::endl;
-    }*/
+    }
+    }
+
+    std::cout << produce_auto_orbit_time_watch.average() << std::endl;
 
     std::cout << pairs.size() << std::endl;
 

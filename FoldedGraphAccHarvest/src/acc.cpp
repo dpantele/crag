@@ -115,6 +115,8 @@ void PermuteToMin(Word* w) {
   if (w->Empty()) return;
 
   auto current_permutation = *w;
+  //PrintTo(*w, &std::cout);
+  //std::cout << std::endl;
   for (auto i = 0u; i < w->size() - 1; ++i) {
     current_permutation.CyclicLeftShift();
     if (current_permutation < *w) {
@@ -168,6 +170,8 @@ Mapping MapToMinWithInverse(Word* w) {
 
 void ReduceMapAndMinCycle(const Mapping& mapping, Word* w) {
   *w = Map(*w, mapping);
+  PrintTo(*w, &std::cout);
+  std::cout << std::endl;
   *w = CyclicReduce(*w);
   PermuteToMinWithInverse(w);
 }
@@ -258,18 +262,17 @@ std::pair<Word, Word> GetCanonicalPair(Word u, Word v, size_t max_length) {
   assert(!min_length_pairs.empty());
 
   //since min_length_pairs is a map, the first element has the shortest u
-  auto min_u_size = min_length_pairs.begin()->first.size();
-  auto min_v_size = min_length_pairs.begin()->second.size();
+  auto min_size = min_length_pairs.begin()->first.size();
 
   for (auto&& pair : min_length_pairs) {
-    min_v_size = std::min(min_v_size, pair.second.size());
+    min_size = std::min(min_size, pair.second.size());
   }
 
   std::tie(u, v) = *min_length_pairs.begin();
   PermuteToMinWithInverse(&u);
   PermuteToMinWithInverse(&v);
   for (auto&& uv : min_length_pairs) {
-    if (uv.first.size() != min_u_size && uv.second.size() != min_v_size) {
+    if (uv.first.size() != min_size && uv.second.size() != min_size) {
       continue;
     }
     auto up = uv.first;
@@ -278,7 +281,13 @@ std::pair<Word, Word> GetCanonicalPair(Word u, Word v, size_t max_length) {
       std::swap(up, vp);
     }
 
+    std::cout << "!!!!!!!!\n";
+    PrintTo(up, &std::cout);
+    std::cout << std::endl;
     auto u_min_mapping = MapToMinWithInverse(&up);
+    std::cout << "!!!!!!!!\n";
+    PrintTo(up, &std::cout);
+    std::cout << std::endl;
 
     if (vp.size() == up.size()) {
       auto v_min_mapping = MapToMinWithInverse(&vp);
@@ -296,6 +305,10 @@ std::pair<Word, Word> GetCanonicalPair(Word u, Word v, size_t max_length) {
     } 
     
     if (up < u || (up == u && vp < v)) {
+      PrintTo(vp, &std::cout);
+      vp.Invert();
+      PrintTo(vp, &std::cout);
+      vp.Invert();
       u = up;
       v = vp;
     }

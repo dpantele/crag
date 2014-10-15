@@ -364,7 +364,15 @@ int main(int argc, const char *argv[]) {
     for (auto u_p = eq_u.begin(); u_p != eq_u.end(); ++u_p) {
 
       normalize_time.Click();
-      auto new_pair = GetCanonicalPair(v, *u_p);
+      auto new_pair = GetOrbitCanonicalPair(v, *u_p);
+      normalize_time.Click();
+
+      if (all_pairs.count(new_pair) != 0) {
+        continue;
+      }
+
+      normalize_time.Click();
+      auto new_pair = GetCanonicalPair(new_pair.first, new_pair.second);
       normalize_time.Click();
   
       if (AddPair(new_pair)) {

@@ -274,7 +274,7 @@ std::pair<Word, Word> GetCanonicalPair(Word u, Word v, size_t max_length) {
     }
     auto up = uv.first;
     auto vp = uv.second;
-    if (up.size() < vp.size()) {
+    if (up.size() > vp.size()) {
       std::swap(up, vp);
     }
 

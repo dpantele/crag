@@ -206,6 +206,8 @@ std::set<std::pair<Word, Word>> MinimizeTotalLength(Word u, Word v, size_t max_l
         auto v_image = CyclicReduce(Map(v, morphism));
         if (max_length == 0 || (u_image.size() <= max_length && v_image.size() <= max_length)) {
           if (u_image.size() + v_image.size() < u.size() + v.size()) {
+            PermuteToMinWithInverse(&u_image);
+            PermuteToMinWithInverse(&v_image);
             u = u_image;
             v = v_image;
             progress = true;
@@ -213,6 +215,8 @@ std::set<std::pair<Word, Word>> MinimizeTotalLength(Word u, Word v, size_t max_l
             min_length_pairs.emplace(u_image, v_image);
             break;
           } else if (u_image.size() + v_image.size() == u.size() + v.size()) {
+            PermuteToMinWithInverse(&u_image);
+            PermuteToMinWithInverse(&v_image);
             min_length_pairs.emplace(u_image, v_image);
           }
         }
@@ -235,6 +239,8 @@ std::set<std::pair<Word, Word>> MinimizeTotalLength(Word u, Word v, size_t max_l
           if (max_length == 0 || (u_image.size() <= max_length && v_image.size() <= max_length)) {
             assert(u_image.size() + v_image.size() >= pair.first.size() + pair.second.size());
             if (u_image.size() + v_image.size() == pair.first.size() + pair.second.size()) {
+              PermuteToMinWithInverse(&u_image);
+              PermuteToMinWithInverse(&v_image);
               if (min_length_pairs.emplace(u_image, v_image).second) {
                 new_pairs.emplace_back(u_image, v_image);
               }

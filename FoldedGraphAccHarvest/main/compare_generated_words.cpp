@@ -19,7 +19,7 @@ char LabelToChar(Label l) {
 }
 
 int main(int argc, const char *argv[]) {
-  std::ifstream normalized_words_in("auts_unproc_words.txt");
+  std::ifstream normalized_words_in("aut2_unproc_words.txt");
 
   std::set<std::pair<Word, Word>> all_words;
 

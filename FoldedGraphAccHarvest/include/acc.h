@@ -67,9 +67,18 @@ void Invert(InputIterator first, InputIterator last) {
 
 std::vector<Word> ReduceAndMinCycle(std::vector<Word>);
 
+typedef std::array<Word, 2 * Word::kAlphabetSize> Mapping;
+void ReduceMapAndMinCycle(const Mapping& mapping, Word* w);
+
+void PermuteToMinWithInverse(Word* w);
+
+std::set<std::pair<Word, Word>> MinimizeTotalLength(Word u, Word v, size_t max_length = 0);
+
 std::pair<Word, Word> GetCanonicalPair(const char* u, const char* v, size_t max_length = 0);
 std::pair<Word, Word> GetCanonicalPair(Word u, Word v, size_t max_length = 0);
 void GetCanonicalPairs(Word* u, std::vector<Word>* vs);
+
+Word Map(Word w, const Mapping& mapping);
 
 //! w -> s^(-1) w s
 Word Conjugate(Word w, Word s);

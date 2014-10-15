@@ -37,8 +37,6 @@ unsigned int GetMaxEqualLetterLength(Word* w) {
   return max_equal_letter_length;
 }
 
-typedef std::array<unsigned int, 2 * Word::kAlphabetSize> Mapping;
-
 Word Map(Word w, const Mapping& mapping) {
   Word result;
   while(!w.Empty()) {
@@ -48,18 +46,8 @@ Word Map(Word w, const Mapping& mapping) {
   return result;
 }
 
-typedef std::array<Word, 2 * Word::kAlphabetSize> Morphism;
-Word Map(Word w, const Morphism& mapping) {
-  Word result;
-  while(!w.Empty()) {
-    result.PushBack(mapping[w.GetFront()]);
-    w.PopFront();
-  }
-  return result;
-}
-
 Mapping MapToMin(Word* w) {
-  Mapping result = {0, 1, 2, 3};
+  Mapping result = {Word(1, 0), Word(1, 1), Word(1, 2), Word(1, 3)};
   if (w->Empty()) {
     return result;
   }
@@ -72,11 +60,11 @@ Mapping MapToMin(Word* w) {
 
   if (count == w->size()) {
     *w = Word(w->size(), 0);
-    result[w->GetFront()] = 0;
-    result[FoldedGraph2::Inverse(w->GetFront())] = 1;
+    result[w->GetFront()] = Word(1, 0);
+    result[FoldedGraph2::Inverse(w->GetFront())] = Word(1, 1);
     if (w->GetFront() >= 2) {
-      result[0] = 2;
-      result[1] = 3;
+      result[0] = Word(1, 2);
+      result[1] = Word(1, 3);
     }
     return result;
   }
@@ -100,11 +88,11 @@ Mapping MapToMin(Word* w) {
         assert(x_preimage != y_preimage && 
           x_preimage != FoldedGraph2::Inverse(y_preimage));
 
-        Mapping mapping = {0};
-        mapping[x_preimage] = 0;
-        mapping[FoldedGraph2::Inverse(x_preimage)] = 1;
-        mapping[y_preimage] = 2;
-        mapping[FoldedGraph2::Inverse(y_preimage)] = 3;
+        Mapping mapping;
+        mapping[x_preimage] = Word(1, 0);
+        mapping[FoldedGraph2::Inverse(x_preimage)] = Word(1, 1);
+        mapping[y_preimage] = Word(1, 2);
+        mapping[FoldedGraph2::Inverse(y_preimage)] = Word(1, 3);
 
         auto new_candidate = Map(*w, mapping);
         if (new_candidate < candidate) {
@@ -179,8 +167,8 @@ Mapping MapToMinWithInverse(Word* w) {
 }
 
 void ReduceMapAndMinCycle(const Mapping& mapping, Word* w) {
-  *w = CyclicReduce(*w);
   *w = Map(*w, mapping);
+  *w = CyclicReduce(*w);
   PermuteToMinWithInverse(w);
 }
 
@@ -189,7 +177,7 @@ Word Inverse(Word w) {
   return w;
 }
 
-void MinimizeTotalLength(Word* u, Word* v, size_t max_length = 0) {
+std::set<std::pair<Word, Word>> MinimizeTotalLength(Word u, Word v, size_t max_length) {
 #define MORPHISM(X, Y) {Word(X), Inverse(Word(X)), Word(Y), Inverse(Word(Y))}
   static const std::array<Word, 2 * FoldedGraph2::kAlphabetSize> morphisms[] = {
     MORPHISM("yx", "y"),
@@ -207,33 +195,134 @@ void MinimizeTotalLength(Word* u, Word* v, size_t max_length = 0) {
   };
 #undef MORPHISM
 
+  std::set<std::pair<Word, Word>> min_length_pairs = {std::make_pair(u, v)};
+
   bool progress = true;
   while (progress) {
     progress = false;
     for (auto&& morphism : morphisms) {
       try {
-        auto u_image = Map(*u, morphism);
-        auto v_image = Map(*v, morphism);
-        if (u_image.size() + v_image.size() < u->size() + v->size() && 
-          (max_length == 0 || (u_image.size() <= max_length && v_image.size() <= max_length))) {
-            *u = u_image;
-            *v = v_image;
+        auto u_image = CyclicReduce(Map(u, morphism));
+        auto v_image = CyclicReduce(Map(v, morphism));
+        if (max_length == 0 || (u_image.size() <= max_length && v_image.size() <= max_length)) {
+          if (u_image.size() + v_image.size() < u.size() + v.size()) {
+            u = u_image;
+            v = v_image;
             progress = true;
+            min_length_pairs.clear();
+            min_length_pairs.emplace(u_image, v_image);
             break;
+          } else if (u_image.size() + v_image.size() == u.size() + v.size()) {
+            min_length_pairs.emplace(u_image, v_image);
+          }
         }
       } catch(std::length_error&) {
         continue;
       }
     }
   }
+
+  //now apply automorphisms to all pairs trying find all same-length pairs
+  progress = true;
+  while (progress) {
+    progress = false;
+    for (auto&& morphism : morphisms) {
+      for (auto&& pair : min_length_pairs) {
+        try {
+          auto u_image = CyclicReduce(Map(pair.first, morphism));
+          auto v_image = CyclicReduce(Map(pair.second, morphism));
+          if (max_length == 0 || (u_image.size() <= max_length && v_image.size() <= max_length)) {
+            assert(u_image.size() + v_image.size() >= pair.first.size() + pair.second.size());
+            if (u_image.size() + v_image.size() == pair.first.size() + pair.second.size()) {
+              if (min_length_pairs.emplace(u_image, v_image).second) {
+                progress = true;
+              }
+            }
+          }
+        } catch(std::length_error&) {
+          continue;
+        }
+      }
+    }
+  }
+  return min_length_pairs;
 }
 
 std::pair<Word, Word> GetCanonicalPair(Word u, Word v, size_t max_length) {
-  MinimizeTotalLength(&u, &v, max_length);
-  auto mapping = MapToMinWithInverse(&u);
-  ReduceMapAndMinCycle(mapping, &v);
+#define MORPHISM(X, Y) {Word(X), Inverse(Word(X)), Word(Y), Inverse(Word(Y))}
+  static const Mapping morphisms[] = {
+    MORPHISM("x", "y"),
+    MORPHISM("x", "Y"),
+    MORPHISM("X", "y"),
+    MORPHISM("X", "Y"),
+    MORPHISM("y", "x"),
+    MORPHISM("y", "X"),
+    MORPHISM("Y", "x"),
+    MORPHISM("Y", "X"),
+  };
+#undef MORPHISM
+
+  u = CyclicReduce(u);
+  v = CyclicReduce(v);
+
+  auto min_length_pairs = MinimizeTotalLength(u, v, max_length);
+  assert(!min_length_pairs.empty());
+  std::tie(u, v) = *min_length_pairs.begin();
+  PermuteToMinWithInverse(&u);
+  PermuteToMinWithInverse(&v);
+  for (auto&& uv : min_length_pairs) {
+    for(auto&& automorph : morphisms) {
+      auto up = uv.first;
+      auto vp = uv.second;
+      ReduceMapAndMinCycle(automorph, &up);
+      ReduceMapAndMinCycle(automorph, &vp);
+
+      if (vp < up) {
+        std::swap(up, vp);
+      }
+
+      if (up < u || (up == u && vp < v)) {
+        u = up;
+        v = vp;
+      }
+    }
+  }
   return std::make_pair(u, v);
 }
+
+//std::pair<Word, Word> GetCanonicalPair(Word u, Word v, size_t max_length) {
+//  MapToMinWithInverse(&u);
+//  MapToMinWithInverse(&v);
+//  if (v < u) {
+//    std::swap(u, v);
+//  }
+//  auto min_length_pairs = MinimizeTotalLength(u, v, max_length);
+//
+//  for (auto&& uv : min_length_pairs) {
+//    auto u_min = uv.first;
+//    auto u_min_mapping = MapToMinWithInverse(&u_min);
+//
+//    auto v_min = uv.second;
+//    auto v_min_mapping = MapToMinWithInverse(&v_min);
+//
+//    Word u_mapped = uv.first;
+//    Word v_mapped = uv.second;
+//    if (v_min < u_min) {
+//      u_mapped = v_min;
+//      v_mapped = uv.first;
+//      ReduceMapAndMinCycle(v_min_mapping, &v_mapped);
+//    } else {
+//      u_mapped = u_min;
+//      v_mapped = uv.second;
+//      ReduceMapAndMinCycle(u_min_mapping, &v_mapped);
+//    }
+//    if (u_mapped < u || (u_mapped == u && v_mapped < v)) {
+//      u = u_mapped;
+//      v = v_mapped;
+//    }
+//  }
+//  return std::make_pair(u, v);
+//}
 
 std::pair<Word, Word> GetCanonicalPair(const char* u_string, const char* v_string, size_t max_length) {
   return GetCanonicalPair(Word(u_string), Word(v_string));

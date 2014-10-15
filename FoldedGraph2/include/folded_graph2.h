@@ -217,6 +217,8 @@ public:
 
 };
 
+
+
 } //namespace crag
 
 #endif //CRAG_FOLDED_GRAPH2_H_

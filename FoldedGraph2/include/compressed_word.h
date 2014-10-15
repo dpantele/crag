@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <iostream>
+#include <random>
 
 namespace crag {
 
@@ -43,6 +44,7 @@ public:
         ++size_;
       }
     }
+    assert((letters_ >> (kLetterShift * size_)) == 0);
   }
 
   CWord(size_t count, unsigned int letter) 
@@ -53,6 +55,7 @@ public:
       --count;
       PushBack(letter);
     }
+    assert((letters_ >> (kLetterShift * size_)) == 0);
   }
 
   explicit CWord(const std::string& letters) 
@@ -82,6 +85,7 @@ public:
           throw std::invalid_argument("Only x, y, X, Y are allowed to be passed to CWord constructor");
       }
     }
+    assert((letters_ >> (kLetterShift * size_)) == 0);
   }
 
   bool Empty() const {
@@ -109,6 +113,7 @@ public:
     } else {
       PopBack();
     }
+    assert(size_ == kMaxLength || (letters_ >> (kLetterShift * size_)) == 0);
   }
 
   void PushBack(CWord w) {
@@ -116,6 +121,7 @@ public:
       PushBack(w.GetFront());
       w.PopFront();
     }
+    assert(size_ == kMaxLength || (letters_ >> (kLetterShift * size_)) == 0);
   }
 
   void PushFront(uint64_t letter) {
@@ -129,18 +135,21 @@ public:
     } else {
       PopFront();
     }
+    assert(size_ == kMaxLength || (letters_ >> (kLetterShift * size_)) == 0);
   }
 
   void PopBack() {
     assert(!Empty());
     --size_;
     letters_ >>= kLetterShift;
+    assert(size_ == kMaxLength || (letters_ >> (kLetterShift * size_)) == 0);
   }
 
   void PopBack(size_type count) {
     assert(size() >= count);
     size_ -= count;
     letters_ >>= (kLetterShift * count);
+    assert(size_ == kMaxLength || (letters_ >> (kLetterShift * size_)) == 0);
   }
 
   void PopFront() {
@@ -203,8 +212,8 @@ public:
     shift %= size_;
     auto left_part = (letters_ >> (kLetterShift * (size_ - shift)));
     letters_ <<= kLetterShift * shift;
-    ZeroUnused();
     letters_ |= left_part;
+    ZeroUnused();
   }
 
   void CyclicRightShift(size_type shift = 1) {
@@ -232,6 +241,7 @@ private:
     } else {
       letters_ = 0;
     }
+    assert(size_ == kMaxLength || (letters_ >> (kLetterShift * size_)) == 0);
   }
 
 };
@@ -254,6 +264,31 @@ inline std::ostream& operator<<(std::ostream& out, const CWord& w) {
   PrintTo(w, &out);
   return out;
 }
+
+class RandomWord {
+public:
+  RandomWord(size_t min_size, size_t max_size)
+    : random_letter_(0, 2 * CWord::kAlphabetSize - 1)
+    , random_length_(min_size, max_size)
+  { }
+
+  template<class RandomEngine>
+  CWord operator()(RandomEngine& engine) {
+    CWord w;
+    size_t length = random_length_(engine);
+    while(w.size() < length) {
+      w.PushBack(random_letter_(engine));
+    }
+    return w;
+  }
+
+private:
+  std::uniform_int_distribution<> random_letter_;
+  std::uniform_int_distribution<size_t> random_length_;
+
+
+};
+
 
 }
 

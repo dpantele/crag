@@ -22,30 +22,6 @@ using Word = FoldedGraph2::Word;
 using Weight = FoldedGraph2::Weight;
 using Vertex = FoldedGraph2::Vertex;
 
-class RandomWord {
-public:
-  RandomWord(size_t min_size, size_t max_size)
-    : random_letter_(0, 2 * Word::kAlphabetSize - 1)
-    , random_length_(min_size, max_size)
-  { }
-
-  template<class RandomEngine>
-  Word operator()(RandomEngine& engine) {
-    Word w;
-    size_t length = random_length_(engine);
-    while(w.size() < length) {
-      w.PushBack(random_letter_(engine));
-    }
-    return w;
-  }
-
-private:
-  std::uniform_int_distribution<> random_letter_;
-  std::uniform_int_distribution<size_t> random_length_;
-
-
-};
-
 namespace naive_graph_folding {
   
 

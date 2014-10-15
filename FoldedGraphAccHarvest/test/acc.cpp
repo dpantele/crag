@@ -346,7 +346,7 @@ TEST(GetCanonicalPair, Naive) {
       auto produce_auto_orbit_time = produce_auto_orbit_time_watch.NewIter();
 
       auto i = 0;
-      while (++i < 5) {
+      while (++i < 7) {
         produce_auto_orbit_time.Click();
         next_elements = ProduceAutomorhicOrbit(next_elements, &pairs);
         produce_auto_orbit_time.Click();

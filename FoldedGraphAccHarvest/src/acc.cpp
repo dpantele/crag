@@ -267,12 +267,24 @@ std::pair<Word, Word> GetCanonicalPair(Word u, Word v, size_t max_length) {
   u = CyclicReduce(u);
   v = CyclicReduce(v);
 
-  auto min_length_pairs = MinimizeTotalLength(u, v, max_length);
+  const auto min_length_pairs = MinimizeTotalLength(u, v, max_length);
   assert(!min_length_pairs.empty());
+
+  //since min_length_pairs is a map, the first element has the shortest u
+  auto min_u_size = min_length_pairs.begin()->first.size();
+  auto min_v_size = min_length_pairs.begin()->second.size();
+
+  for (auto&& pair : min_length_pairs) {
+    min_v_size = std::min(min_v_size, pair.second.size());
+  }
+
   std::tie(u, v) = *min_length_pairs.begin();
   PermuteToMinWithInverse(&u);
   PermuteToMinWithInverse(&v);
   for (auto&& uv : min_length_pairs) {
+    if (uv.first.size() != min_u_size && uv.second.size() != min_v_size) {
+      continue;
+    }
     for(auto&& automorph : morphisms) {
       auto up = uv.first;
       auto vp = uv.second;

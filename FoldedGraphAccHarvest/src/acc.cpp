@@ -273,20 +273,28 @@ std::pair<Word, Word> GetCanonicalPair(Word u, Word v, size_t max_length) {
       continue;
     }
     auto up = uv.first;
-    auto u_min_mapping = MapToMinWithInverse(&up);
-
     auto vp = uv.second;
-    auto v_min_mapping = MapToMinWithInverse(&vp);
-
-    if (vp < up) {
-      up = vp;
-      vp = uv.first;
-      ReduceMapAndMinCycle(v_min_mapping, &vp);
-    } else {
-      vp = uv.second;
-      ReduceMapAndMinCycle(u_min_mapping, &vp);
+    if (up.size() < vp.size()) {
+      std::swap(up, vp);
     }
 
+    auto u_min_mapping = MapToMinWithInverse(&up);
+
+    if (vp.size() == up.size()) {
+      auto v_min_mapping = MapToMinWithInverse(&vp);
+
+      if (vp < up) {
+        up = vp;
+        vp = uv.first;
+        ReduceMapAndMinCycle(v_min_mapping, &vp);
+      } else {
+        vp = uv.second;
+        ReduceMapAndMinCycle(u_min_mapping, &vp);
+      }
+    } else {
+      ReduceMapAndMinCycle(u_min_mapping, &vp);
+    } 
+    
     if (up < u || (up == u && vp < v)) {
       u = up;
       v = vp;

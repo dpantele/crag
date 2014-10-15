@@ -223,11 +223,12 @@ std::set<std::pair<Word, Word>> MinimizeTotalLength(Word u, Word v, size_t max_l
   }
 
   //now apply automorphisms to all pairs trying find all same-length pairs
-  progress = true;
-  while (progress) {
-    progress = false;
+  std::vector<std::pair<Word, Word>> pairs_to_check(min_length_pairs.begin(), min_length_pairs.end());
+
+  while (!pairs_to_check.empty()) {
+    std::vector<std::pair<Word, Word>> new_pairs;
     for (auto&& morphism : morphisms) {
-      for (auto&& pair : min_length_pairs) {
+      for (auto&& pair : pairs_to_check) {
         try {
           auto u_image = CyclicReduce(Map(pair.first, morphism));
           auto v_image = CyclicReduce(Map(pair.second, morphism));
@@ -235,7 +236,7 @@ std::set<std::pair<Word, Word>> MinimizeTotalLength(Word u, Word v, size_t max_l
             assert(u_image.size() + v_image.size() >= pair.first.size() + pair.second.size());
             if (u_image.size() + v_image.size() == pair.first.size() + pair.second.size()) {
               if (min_length_pairs.emplace(u_image, v_image).second) {
-                progress = true;
+                new_pairs.emplace_back(u_image, v_image);
               }
             }
           }
@@ -244,6 +245,7 @@ std::set<std::pair<Word, Word>> MinimizeTotalLength(Word u, Word v, size_t max_l
         }
       }
     }
+    pairs_to_check = std::move(new_pairs);
   }
   return min_length_pairs;
 }

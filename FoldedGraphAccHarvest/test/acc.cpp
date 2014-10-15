@@ -343,25 +343,25 @@ TEST(GetCanonicalPair, Naive) {
 
     Stopwatch produce_auto_orbit_time_watch;
     {
-    auto produce_auto_orbit_time = produce_auto_orbit_time_watch.NewIter();
+      auto produce_auto_orbit_time = produce_auto_orbit_time_watch.NewIter();
 
-    auto i = 0;
-    while (++i < 3) {
-      produce_auto_orbit_time.Click();
-      next_elements = ProduceAutomorhicOrbit(next_elements, &pairs);
-      produce_auto_orbit_time.Click();
-    }
+      auto i = 0;
+      while (++i < 5) {
+        produce_auto_orbit_time.Click();
+        next_elements = ProduceAutomorhicOrbit(next_elements, &pairs);
+        produce_auto_orbit_time.Click();
+      }
 
-    auto old_size = 0u;
-    auto new_size = pairs.size();
-    while (old_size < new_size) {
-      old_size = new_size;
-      produce_auto_orbit_time.Click();
-      next_elements = ProduceAutomorhicOrbit(next_elements, &pairs);
-      produce_auto_orbit_time.Click();
-      new_size = count_size_16_and_less(pairs);
-      std::cout << ++i << ": " << new_size << std::endl;
-    }
+      //auto old_size = 0u;
+      //auto new_size = pairs.size();
+      //while (old_size < new_size) {
+      //  old_size = new_size;
+      //  produce_auto_orbit_time.Click();
+      //  next_elements = ProduceAutomorhicOrbit(next_elements, &pairs);
+      //  produce_auto_orbit_time.Click();
+      //  new_size = count_size_16_and_less(pairs);
+      //  std::cout << ++i << ": " << new_size << std::endl;
+      //}
     }
 
     std::cout << produce_auto_orbit_time_watch.average() << std::endl;

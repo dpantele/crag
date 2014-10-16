@@ -58,11 +58,19 @@ struct Stopwatch {
       ++clicks_count_;
     }
 
-    ~Iteration() {
+    void Reset() {
       if (IsRunning()) {
         Click();
       }
-      stopwatch_->Report(this);
+      if (clicks_count_) {
+        stopwatch_->Report(this);
+        clicks_count_ = 0;
+        duration_ = clock::duration(0);
+      }
+    }
+
+    ~Iteration() {
+      Reset();
     }
   };
 
@@ -83,12 +91,78 @@ struct Stopwatch {
   long long average() {
     return iterations_count_ ? std::chrono::duration_cast<ResultUnits>(duration_ / iterations_count_).count() : 0;
   }
+
+  uint64_t iterations() const {
+    return iterations_count_;
+  }
+
+  long long total_time() const {
+    return duration_.count();
+  }
 };
 
 template<typename U, typename V>
 std::pair<V, U> Swapped(std::pair<U, V> p) {
   return std::pair<V, U>(std::move(p.second), std::move(p.first));
 }
+
+//structures and algoritms for main below:
+
+struct Stopwatches {
+  typedef Stopwatch Field;
+  std::array<Field, 4> data_;
+
+  Field& folding() {
+    return data_[0];
+  }
+  Field& harvest() {
+    return data_[1];
+  }
+  Field& normalize() {
+    return data_[2];
+  }
+  Field& reweight() {
+    return data_[3];
+  }
+
+  long long total() const {
+    long long total = 0;
+    for (auto&& timer : data_) {
+      total += timer.total_time();
+    }
+    return total;
+  }
+};
+
+
+struct StopwatchesIteration {
+  typedef Stopwatch::Iteration Field;
+  std::array<Field, 4> data_;
+
+  Field& folding() {
+    return data_[0];
+  }
+  Field& harvest() {
+    return data_[1];
+  }
+  Field& normalize() {
+    return data_[2];
+  }
+  Field& reweight() {
+    return data_[3];
+  }
+
+  StopwatchesIteration(Stopwatches* s)
+    : data_({s->data_[0].NewIter(), s->data_[1].NewIter(), s->data_[2].NewIter(), s->data_[3].NewIter()})
+  { }
+
+  void Reset() {
+    for (auto&& timer : data_) {
+      timer.Reset();
+    }
+  }
+};
+
 
 int main(int argc, const char *argv[]) {
   size_t max_harvest_length = Word::kMaxLength;
@@ -202,10 +276,10 @@ int main(int argc, const char *argv[]) {
   AddPair(initial);
   AddPair(Swapped(initial));
 
-  Stopwatch folding_time_total;
-  Stopwatch harvest_time_total;
-  Stopwatch normalize_time_total;
-  Stopwatch reweight_time_total;
+  Stopwatches total_time;
+  Stopwatch overall_time;
+  auto overall_time_stamp = overall_time.NewIter();
+  overall_time_stamp.Click();
 
   while (!all_pairs.count(required) && !unprocessed_pairs.empty()) {
     ++counter;
@@ -247,49 +321,46 @@ int main(int argc, const char *argv[]) {
     //  }
     //}
 
-    auto folding_time = folding_time_total.NewIter();
-    folding_time.Click();
+    StopwatchesIteration time(&total_time);
+
+    time.folding().Click();
     FoldedGraph2 g;
     g.PushCycle(u, g.root(), 1);
 
     for (auto i = 0u; i < complete_count[v.size()]; ++i) {
       g.CompleteWith(v);
     }
-    folding_time.Click();
+    time.folding().Click();
 
     if (estats_out.is_open()) {
       estats_out << g.size() << ", ";
       estats_out << g.CountNontrivialEdges() << ", ";
     }
 
-    auto reweight_time = reweight_time_total.NewIter();
-    reweight_time.Click();
+    time.reweight().Click();
     g.Reweight();
-    reweight_time.Click();
+    time.reweight().Click();
 
     if (estats_out.is_open()) {
       estats_out << g.CountNontrivialEdges() << ", ";
     }
 
-    auto harvest_time = harvest_time_total.NewIter();
-    harvest_time.Click();
+    time.harvest().Click();
     auto eq_u = g.Harvest(max_harvest_length, g.root());
-    harvest_time.Click();
+    time.harvest().Click();
 
     if (estats_out.is_open()) {
       estats_out << eq_u.size() << ", ";
     }
-
-    auto normalize_time = normalize_time_total.NewIter();
 
     auto pairs_count_before = all_pairs.size();
 
     std::bitset<Word::kMaxLength> available_sizes;
     for (auto u_p = eq_u.begin(); u_p != eq_u.end(); ++u_p) {
 
-      normalize_time.Click();
+      time.normalize().Click();
       auto new_pair = GetCanonicalPair(v, *u_p);
-      normalize_time.Click();
+      time.normalize().Click();
   
       if (AddPair(Swapped(new_pair))) {
         if (u_p->size() > 0) {
@@ -318,19 +389,21 @@ int main(int argc, const char *argv[]) {
       }
     }
 
-    *out << ", " << folding_time_total.last() << ", ";
-    *out << harvest_time_total.last() << std::endl;
+    time.Reset();
+
+    *out << ", " << total_time.folding().last() << ", ";
+    *out << total_time.harvest().last() << std::endl;
 
     if (estats_out.is_open()) {
       estats_out << ", ";
-      estats_out << folding_time_total.last() << ", ";
-      estats_out << folding_time_total.average() << ", ";
-      estats_out << reweight_time_total.last() << ", ";
-      estats_out << reweight_time_total.average() << ", ";
-      estats_out << harvest_time_total.last() << ", ";
-      estats_out << harvest_time_total.average() << ", ";
-      estats_out << normalize_time_total.last() << ", ";
-      estats_out << normalize_time_total.average() << "\n";
+      estats_out << total_time.folding().last() << ", ";
+      estats_out << total_time.folding().average() << ", ";
+      estats_out << total_time.reweight().last() << ", ";
+      estats_out << total_time.reweight().average() << ", ";
+      estats_out << total_time.harvest().last() << ", ";
+      estats_out << total_time.harvest().average() << ", ";
+      estats_out << total_time.normalize().last() << ", ";
+      estats_out << total_time.normalize().average() << "\n";
     }
 
     out->flush();
@@ -338,6 +411,12 @@ int main(int argc, const char *argv[]) {
     proc_words.flush();
     unproc_words.flush();
   }
+  overall_time_stamp.Click();
+  overall_time_stamp.Reset();
+  auto average_other_time = (overall_time.total_time() - total_time.total()) / total_time.folding().iterations();
+  *out << "total rest: " << average_other_time << std::endl;
+  *out << "total iterations: " << total_time.folding().iterations() << std::endl;
+
 
   return 0;
 }

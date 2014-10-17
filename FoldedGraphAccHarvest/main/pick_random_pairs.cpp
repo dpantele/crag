@@ -68,7 +68,7 @@ private:
 };
 
 int main(int argc, const char *argv[]) {
-  std::ifstream words_in("h10_proc_words.txt");
+  std::ifstream words_in("diff.txt");
   std::random_device rd;
   std::mt19937_64 random_engine(rd());
 

@@ -229,6 +229,48 @@ NewOrbitElements ProduceAutomorhicOrbit(const NewOrbitElements& just_added_elems
 
 #define PAIR(X, Y) std::make_pair(Word(X), Word(Y))
 static const std::pair<Word, Word> random_pairs[] = {
+  PAIR("xxxyxyxy", "xxxYYYXyyyy"),
+  PAIR("xxxxxyxxyyy", "xyyyyxYYY"),
+  PAIR("xxxxYXyyXXy", "xyxyxyyy"),
+  PAIR("xxyyyyxYYY", "xxxxxyxxy"),
+  PAIR("xxxyxxxYxxy", "xxyXXyxYY"),
+  PAIR("xxYYYYxyyy", "xxxxxYxxY"),
+  PAIR("xxxYxYxY", "xxxYYYYXyyy"),
+  PAIR("xxyxYYYYXyy", "xxxYxYxY"),
+  PAIR("xxxxYXYYXXy", "xYxYxYYY"),
+  PAIR("xxxYxYxY", "xxyyxYYYYXy"),
+  PAIR("xyyxyyyyy", "xxxxyXXXyy"),
+  PAIR("xyxyxyyy", "xxxxyXXyyXY"),
+  PAIR("xxxxYYYXXXy", "xYxYxYYY"),
+  PAIR("xyxyxyyy", "xxxxyyyXXXY"),
+  PAIR("xxxYxxxYxxy", "xxyXYYXXy"),
+  PAIR("xxxxYXXyyXy", "xyxyxyyy"),
+  PAIR("xyyyxYYYY", "xxxYxxxYxY"),
+  PAIR("xYxYxYYY", "xxxxyXXXYYY"),
+  PAIR("xxxxyXXXy", "xyxyyxyxyyy"),
+  PAIR("xyyyxyyyXyy", "xxYXyyXYY"),
+
+  PAIR("xxyXYXYYxy", "xyxYYxYxYxY"),
+  PAIR("xxxxYYxYXyy", "xxYxxYxxYxy"),
+  PAIR("xyxYxYYXyXY", "xyxYYXyxYYXy"),
+  PAIR("xxxxYxyXYXyy", "xxyxYXyyxxY"),
+  PAIR("xxxyxxyyxxy", "xxyxxyyXyxxY"),
+  PAIR("xyxyyxyxyyy", "xxxxyXXyxyyy"),
+  PAIR("xyXyyXYxYYY", "xyyxyyyyyXy"),
+  PAIR("xxYYxYxYY", "xxxyXyxYYXXY"),
+  PAIR("xyxyyyyxYYY", "xxyxyyyXXYYY"),
+  PAIR("xxYYYXyyyxY", "xxyyyXYxxYYY"),
+  PAIR("xxxxYYXyXYxy", "xxxxYYxyxxY"),
+  PAIR("xyXyyyXYY", "xxxYYYYxyXYY"),
+  PAIR("xxyyXyXXYYYY", "xyyXyXYYxYY"),
+  PAIR("xxYYxYYYYYY", "xxyxYYYXXY"),
+  PAIR("xxxyxYXXy", "xxxxyyyXYxxy"),
+  PAIR("xxYYxYYXYYxy", "xyXyyyXYY"),
+  PAIR("xxYxYYxYYYY", "xxxYYXyxYYYY"),
+  PAIR("xyyXyyXyyXY", "xxYYXyxyXYYY"),
+  PAIR("xxxxxYxYYYXy", "xyyyxYYYY"),
+  PAIR("xxYYYYXYxyXy", "xyyXyyxYYXY"),
+
   PAIR("xyyxY", "xxxxyXXYxy"),
   PAIR("xyxYXY", "xxxYYYY"),
   PAIR("xyxyXYY", "xyxyxYYXy"),
@@ -372,13 +414,13 @@ TEST(GetCanonicalPair, Naive) {
         next_elements = ProduceAutomorhicOrbit(next_elements, &pairs);
         produce_auto_orbit_time.Click();
         new_size = count_size_16_and_less(pairs);
-        std::cout << ++i << ": " << new_size << std::endl;
+//        std::cout << ++i << ": " << new_size << std::endl;
       }
     }
 
-    std::cout << produce_auto_orbit_time_watch.average() << std::endl;
+    //std::cout << produce_auto_orbit_time_watch.average() << std::endl;
 
-    std::cout << pairs.size() << std::endl;
+    //std::cout << pairs.size() << std::endl;
 
     auto initial_pair_canonical = naive_get_canonical_pair::GetCanonicalPair(initial_pair.first, initial_pair.second);
     auto pair_count = 0u;

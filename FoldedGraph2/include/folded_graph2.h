@@ -207,7 +207,7 @@ public:
   Vertex AddEdge(Label l, Vertex from, Vertex to = kNullVertex);
 
   //! Compute distances from the vertices to @ref v
-  std::vector<unsigned int> ComputeDistances(Vertex v) const;
+  std::vector<unsigned int> ComputeDistances(Vertex v, unsigned int max_distance = 0) const;
 
   //! Check that the weight of inverse edges are inverses of each other
   Vertex FindInconsistentWeights() const;

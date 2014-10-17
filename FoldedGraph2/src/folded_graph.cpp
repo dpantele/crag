@@ -541,9 +541,9 @@ void FoldedGraph2::CompleteWith(Word r) {
   }
 }
 
-std::vector<unsigned int> FoldedGraph2::ComputeDistances(Vertex v) const {
+std::vector<unsigned int> FoldedGraph2::ComputeDistances(Vertex v, unsigned int max_distance) const {
   v = GetLastCombinedWith(v);
-  std::vector<unsigned int> distance(edges_.size(), std::numeric_limits<unsigned int>::max());
+  std::vector<unsigned int> distance(edges_.size());
   distance[v] = 0;
   
   std::deque<Vertex> q = {v};
@@ -559,7 +559,10 @@ std::vector<unsigned int> FoldedGraph2::ComputeDistances(Vertex v) const {
 
       neighbor = GetLastCombinedWith(neighbor);
 
-      if (distance[next] + 1 < distance[neighbor]) {
+      if (distance[next] + 1 < distance[neighbor] || (distance[neighbor] == 0 && neighbor != v)) {
+        if (max_distance != 0 && distance[next] >= max_distance) {
+          continue;
+        }
         distance[neighbor] = distance[next] + 1;
         q.push_back(neighbor);
       }
@@ -602,7 +605,7 @@ void FoldedGraph2::Harvest(
 
   auto initial_result_length = result->size();
   v2 = GetLastCombinedWith(v2);
-  auto v2_distances = this->ComputeDistances(v2);
+  auto v2_distances = this->ComputeDistances(v2, k);
   
   while (!current_path->empty()) {
     Vertex v;
@@ -625,7 +628,7 @@ void FoldedGraph2::Harvest(
       if (n == kNullVertex) {
         continue;
       }
-      if (v2_distances[n] + w.size() < k) {
+      if (v2_distances[n] + w.size() < k && (n == v2 || v2_distances[n] != 0)) {
         Word next_word = w;
         next_word.PushBack(label);
         current_path->emplace_back(n, next_word, c + edges.weight(label));

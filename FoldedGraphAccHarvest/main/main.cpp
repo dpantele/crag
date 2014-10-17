@@ -404,7 +404,7 @@ public:
 
   void Run() {
     while (!exit_) {
-      Task t = nulltpr;
+      Task t = nullptr;
       if (!task_->wait_and_pop(t, std::chrono::milliseconds{100})) {
         continue;
       }

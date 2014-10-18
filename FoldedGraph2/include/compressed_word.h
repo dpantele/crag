@@ -182,7 +182,7 @@ public:
 
     // shift significant part back to the right
     if (size_ <= 32) {
-      letters_.second >>= (sizeof(letters_) * 8 - size_ * kLetterShift);
+      letters_.second >>= (64 - size_ * kLetterShift);
     } else {
       letters_.first = Flip(letters_.first);
       std::swap(letters_.first, letters_.second);

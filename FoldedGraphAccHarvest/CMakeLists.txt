@@ -17,4 +17,5 @@ target_link_libraries(FoldedGraphAccHarvest_main_main PRIVATE "${CMAKE_THREAD_LI
 
 crag_main(auto_check AccHarvest)
 crag_main(compare_generated_words AccHarvest)
+crag_main(count_length AccHarvest)
 crag_main(pick_random_pairs AccHarvest)

@@ -66,6 +66,30 @@ TEST(CWord, PushFrontPopBack) {
   }
 } 
 
+TEST(CWord, LeftCyclicShift17) {
+  CWord w;
+  for (auto i = 0u; i < 55; ++i) {
+    w.PushBack(GetLabel(i));
+  }
+  w.CyclicLeftShift(17);
+  for (auto i = 0u; i < 55; ++i) {
+    ASSERT_EQ(GetLabel((i + 17) % 55), w.GetFront());
+    w.PopFront();
+  }
+} 
+
+TEST(CWord, RightCyclicShift17) {
+  CWord w;
+  for (auto i = 0u; i < 55; ++i) {
+    w.PushBack(GetLabel(i));
+  }
+  w.CyclicRightShift(17);
+  for (auto i = 0u; i < 55; ++i) {
+    ASSERT_EQ(GetLabel((i + 55 - 17) % 55), w.GetFront());
+    w.PopFront();
+  }
+} 
+
 
 TEST(CWord, CyclicShift) {
   CWord w = {0, 2, 1, 3, 0, 2, 1, 3, 0, 3, 1, 2, 0, 3, 1, 2};

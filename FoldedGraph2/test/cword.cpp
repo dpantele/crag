@@ -90,6 +90,42 @@ TEST(CWord, RightCyclicShift17) {
   }
 } 
 
+TEST(CWord, Flip55) {
+  CWord w;
+  for (auto i = 0u; i < 55; ++i) {
+    w.PushBack(GetLabel(i));
+  }
+  w.Flip();
+  for (auto i = 0u; i < 55; ++i) {
+    ASSERT_EQ(GetLabel(54 - i), w.GetFront());
+    w.PopFront();
+  }
+} 
+
+TEST(CWord, Flip30) {
+  CWord w;
+  for (auto i = 0u; i < 30; ++i) {
+    w.PushBack(GetLabel(i));
+  }
+  w.Flip();
+  for (auto i = 0u; i < 30; ++i) {
+    ASSERT_EQ(GetLabel(29 - i), w.GetFront());
+    w.PopFront();
+  }
+} 
+
+TEST(CWord, Inverse55) {
+  CWord w;
+  for (auto i = 0u; i < 55; ++i) {
+    w.PushBack(GetLabel(i));
+  }
+  w.Invert();
+  for (auto i = 0u; i < 55; ++i) {
+    ASSERT_EQ(GetLabel(54 - i) ^ 1, w.GetFront());
+    w.PopFront();
+  }
+} 
+
 
 TEST(CWord, CyclicShift) {
   CWord w = {0, 2, 1, 3, 0, 2, 1, 3, 0, 3, 1, 2, 0, 3, 1, 2};
@@ -119,6 +155,22 @@ TEST(CWord, Inverse2) {
   CWord a = {0, 2, 1, 3};
   a.Invert();
   EXPECT_EQ(CWord({2, 0, 3, 1}), a);
+}
+
+TEST(CWord, StringInput) {
+  CWord a("xyxYXY");
+  EXPECT_EQ(a.GetBack(), 3);
+  a.PopBack();
+  EXPECT_EQ(a.GetBack(), 1);
+  a.PopBack();
+  EXPECT_EQ(a.GetBack(), 3);
+  a.PopBack();
+  EXPECT_EQ(a.GetBack(), 0);
+  a.PopBack();
+  EXPECT_EQ(a.GetBack(), 2);
+  a.PopBack();
+  EXPECT_EQ(a.GetBack(), 0);
+  a.PopBack();
 }
 
 

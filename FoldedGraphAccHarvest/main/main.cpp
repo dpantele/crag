@@ -282,9 +282,9 @@ class PairToProcess {
     FoldedGraph2 g;
     g.PushCycle(u(), g.root(), 1);
 
-    for (auto i = 0u; i < p_.complete_count[v().size()]; ++i) {
+    //for (auto i = 0u; i < p_.complete_count[v().size()]; ++i) {
       g.CompleteWith(v());
-    }
+    //}
     time_.folding().Click();
 
     s_.graph_size_ = g.size();

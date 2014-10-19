@@ -284,6 +284,7 @@ class PairToProcess {
 
     //for (auto i = 0u; i < p_.complete_count[v().size()]; ++i) {
       g.CompleteWith(v());
+      g.GrowHair();
     //}
     time_.folding().Click();
 

@@ -296,8 +296,13 @@ class PairToProcess {
 
     s_.edges_after_reweight_ = g.CountNontrivialEdges();
 
+    //this should not happen, but...
+    if (p_.max_harvest_length <= v().size()) {
+      return;
+    }
+
     time_.harvest().Click();
-    auto eq_u = g.Harvest(p_.max_harvest_length, g.root());
+    auto eq_u = g.Harvest(p_.max_harvest_length - v().size(), 1);
     time_.harvest().Click();
 
     s_.count_after_harvest_ = eq_u.size();

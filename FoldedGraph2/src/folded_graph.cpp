@@ -731,6 +731,21 @@ void FoldedGraph2::ShiftWeight(Vertex v, Weight shift) {
   }
 }
 
+void FoldedGraph2::GrowHair() {
+  auto current_vertex_count = edges_.size();
+  for(auto vertex_id = 1u; vertex_id < current_vertex_count; ++vertex_id) {
+    auto& vertex = edges_[vertex_id];
+    if (vertex.combined_with_) {
+      continue;
+    }
+    for (auto label = 0u; label < 2 * kAlphabetSize; ++label) {
+      if (vertex.edges_[label] == kNullVertex) {
+        AddEdge(label, vertex_id, kNullVertex);
+      }
+    }
+  }
+}
+
 void FoldedGraph2::Reweight() {
   std::deque<Vertex> to_check;
   for(Vertex v = root(); v < edges_.size(); ++v) {

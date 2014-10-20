@@ -206,6 +206,7 @@ struct StopwatchesIteration {
 
 struct Parameters {
   size_t max_harvest_length = Word::kMaxLength;
+  size_t max_total_length = 2 * Word::kMaxLength;
   size_t workers_count_ = 1;
   std::vector<uint16_t> complete_count;
   std::pair<std::string, std::string> initial_strings;
@@ -298,12 +299,12 @@ class PairToProcess {
     s_.edges_after_reweight_ = g.CountNontrivialEdges();
 
     //this should not happen, but...
-    if (p_.max_harvest_length <= v().size()) {
+    if (p_.max_total_length <= v().size()) {
       return;
     }
 
     time_.harvest().Click();
-    auto eq_u = g.Harvest(p_.max_harvest_length - v().size(), 1);
+    auto eq_u = g.Harvest(std::min(p_.max_harvest_length, p_.max_total_length - v().size()), 1);
     time_.harvest().Click();
 
     s_.count_after_harvest_ = eq_u.size();
@@ -445,6 +446,8 @@ int main(int argc, const char *argv[]) {
 
     if (arg.front() == "maxhl") {
       p.max_harvest_length = std::stoi(arg[1]);
+    } else if (arg.front() == "maxtl") {
+      p.max_total_length = std::stoi(arg[1]);
     } else if (arg.front() == "j") {
       p.workers_count_ = std::stoi(arg[1]);
     } else if (arg.front() == "comp") {
@@ -485,6 +488,7 @@ int main(int argc, const char *argv[]) {
   if (estats_out.is_open()) {
     estats_out << "Configuration: " << std::endl;
     estats_out << "Max length for harvest: " << p.max_harvest_length << std::endl;
+    estats_out << "Max total length of a pair: " << p.max_total_length << std::endl;
     estats_out << "Pairs are also normalized using automorphisms: yes";
     estats_out << "Initial words:          " << p.initial_strings.first << " | " << p.initial_strings.second << std::endl;
     estats_out << "\nHow many times graph is completed with v: " << std::endl;

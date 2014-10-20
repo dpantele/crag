@@ -541,9 +541,9 @@ void FoldedGraph2::CompleteWith(Word r) {
   }
 }
 
-std::vector<unsigned int> FoldedGraph2::ComputeDistances(Vertex v, unsigned int max_distance) const {
+std::vector<Word::size_type> FoldedGraph2::ComputeDistances(Vertex v, Word::size_type max_distance) const {
   v = GetLastCombinedWith(v);
-  std::vector<unsigned int> distance(edges_.size());
+  std::vector<Word::size_type> distance(edges_.size());
   distance[v] = 0;
   
   std::deque<Vertex> q = {v};
@@ -588,7 +588,7 @@ bool IsSortedAndUnique(Iter current, Iter end) {
   return true;
 }
 
-std::vector<Word> FoldedGraph2::Harvest(size_t k, Vertex v1, Vertex v2, Weight weight) const {
+std::vector<Word> FoldedGraph2::Harvest(Word::size_type k, Vertex v1, Vertex v2, Weight weight) const {
   std::vector<Word> result;
   FoldedGraph2::HarvestPath current_path = {std::make_tuple(v1, Word{ }, 0)};
   Harvest(k, v2, weight, &current_path, &result);
@@ -596,7 +596,7 @@ std::vector<Word> FoldedGraph2::Harvest(size_t k, Vertex v1, Vertex v2, Weight w
 }
 
 void FoldedGraph2::Harvest(
-    size_t k, 
+    Word::size_type k, 
     Vertex v2, 
     Weight weight, 
     FoldedGraph2::HarvestPath* current_path, 
@@ -639,7 +639,7 @@ void FoldedGraph2::Harvest(
   assert(IsSortedAndUnique(result->begin() + initial_result_length, result->end()));
 }
 
-std::vector<Word> FoldedGraph2::Harvest(size_t k, Weight w) {
+std::vector<Word> FoldedGraph2::Harvest(Word::size_type k, Weight w) {
   std::vector<Word> result;
 
   if (WeightMod(w) == 0) {
@@ -682,7 +682,7 @@ std::vector<Word> FoldedGraph2::Harvest(size_t k, Weight w) {
 
 void FoldedGraph2::PrintAsDot(std::ostream* out) const {
   (*out) << "digraph {\n  edge [arrowtail=dot,arrowhead=vee,arrowsize=0.5];\n  1 [color=blue];\n";
-  int i = -1;
+  Vertex i = -1;
   for (auto&& vertex : edges_) {
     ++i;
     if (i == 0) {

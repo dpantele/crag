@@ -97,7 +97,7 @@ public:
     letters_ = 0;
   }
 
-  uint32_t size() const {
+  size_type size() const {
     return size_;
   }
 

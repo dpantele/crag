@@ -205,8 +205,8 @@ struct StopwatchesIteration {
 };
 
 struct Parameters {
-  size_t max_harvest_length = Word::kMaxLength;
-  size_t max_total_length = 2 * Word::kMaxLength;
+  Word::size_type max_harvest_length = Word::kMaxLength;
+  Word::size_type max_total_length = 2 * Word::kMaxLength;
   size_t workers_count_ = 1;
   std::vector<uint16_t> complete_count;
   std::pair<std::string, std::string> initial_strings;
@@ -375,12 +375,12 @@ public:
     return false;
   }
 
-  bool empty() const{
+  bool empty() const {
     std::lock_guard<std::mutex> lock(m_);
     return queue_.empty();
   }
 
-  unsigned size() const{
+  size_t size() const {
     std::lock_guard<std::mutex> lock(m_);
     return queue_.size();
   }
@@ -445,9 +445,17 @@ int main(int argc, const char *argv[]) {
     }
 
     if (arg.front() == "maxhl") {
-      p.max_harvest_length = std::stoi(arg[1]);
+      auto param = std::stoul(arg[1]);
+      if (param > std::numeric_limits<decltype(p.max_harvest_length)>::max()) {
+        throw std::invalid_argument("Max harvest length is too big");
+      }
+      p.max_harvest_length = static_cast<decltype(p.max_harvest_length)>(param);
     } else if (arg.front() == "maxtl") {
-      p.max_total_length = std::stoi(arg[1]);
+      auto param = std::stoul(arg[1]);
+      if (param > std::numeric_limits<decltype(p.max_total_length)>::max()) {
+        throw std::invalid_argument("Max total length is too big");
+      }
+      p.max_total_length = static_cast<decltype(p.max_harvest_length)>(param);
     } else if (arg.front() == "j") {
       p.workers_count_ = std::stoi(arg[1]);
     } else if (arg.front() == "comp") {

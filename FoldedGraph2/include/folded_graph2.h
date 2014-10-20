@@ -148,15 +148,15 @@ public:
   void GrowHair();
 
   //! Find all word of length up to k which can can be read from v1 to v2
-  std::vector<Word> Harvest(size_t k, Vertex v1, Vertex v2, Weight w = 0) const;
+  std::vector<Word> Harvest(Word::size_type k, Vertex v1, Vertex v2, Weight w = 0) const;
 
   typedef std::deque<std::tuple<Vertex, Word, Weight>> HarvestPath;
 
   //! Find all word of length up to k which can can be read from v1 to v2
-  void Harvest(size_t k, Vertex v2, Weight w, HarvestPath* current_path, std::vector<Word>* result) const;
+  void Harvest(Word::size_type k, Vertex v2, Weight w, HarvestPath* current_path, std::vector<Word>* result) const;
 
   //! Harvest all cycles of defined weight of length less thatn @ref k
-  std::vector<Word> Harvest(size_t k, Weight w = 0);
+  std::vector<Word> Harvest(Word::size_type k, Weight w = 0);
 
 
   //! Returns true if vertices are equal
@@ -209,7 +209,7 @@ public:
   Vertex AddEdge(Label l, Vertex from, Vertex to = kNullVertex);
 
   //! Compute distances from the vertices to @ref v
-  std::vector<unsigned int> ComputeDistances(Vertex v, unsigned int max_distance = 0) const;
+  std::vector<Word::size_type> ComputeDistances(Vertex v, Word::size_type max_distance = 0) const;
 
   //! Check that the weight of inverse edges are inverses of each other
   Vertex FindInconsistentWeights() const;

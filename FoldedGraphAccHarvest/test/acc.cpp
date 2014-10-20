@@ -134,6 +134,7 @@ std::pair<Word, Word> GetCanonicalPair(Word u, Word v) {
 
   u = CyclicReduce(u);
   v = CyclicReduce(v);
+  bool swapped = false;
 
   auto min_length_pairs = MinimizeTotalLength(u, v);
   assert(!min_length_pairs.empty());
@@ -150,6 +151,7 @@ std::pair<Word, Word> GetCanonicalPair(Word u, Word v) {
 
       if (vp < up) {
         std::swap(up, vp);
+        swapped = !swapped;
       }
 
       if (up < u || (up == u && vp < v)) {
@@ -158,7 +160,11 @@ std::pair<Word, Word> GetCanonicalPair(Word u, Word v) {
       }
     }
   }
-  return std::make_pair(u, v);
+  if (swapped) {
+    return std::make_pair(v, u);
+  } else {
+    return std::make_pair(u, v);
+  }
 }
 
 

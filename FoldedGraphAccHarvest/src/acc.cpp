@@ -275,6 +275,7 @@ std::pair<Word, Word> GetOrbitCanonicalPair(const Word& u, const Word& v, size_t
 
   auto u_min = u;
   auto v_min = v;
+  bool swapped = false;
   for(auto&& automorph : morphisms) {
     auto up = u;
     auto vp = v;
@@ -283,6 +284,7 @@ std::pair<Word, Word> GetOrbitCanonicalPair(const Word& u, const Word& v, size_t
 
     if (vp < up) {
       std::swap(up, vp);
+      swapped = !swapped;
     }
 
     if (up < u_min || (up == u_min && vp < v_min)) {
@@ -290,10 +292,20 @@ std::pair<Word, Word> GetOrbitCanonicalPair(const Word& u, const Word& v, size_t
       v_min = vp;
     }
   }
-  return std::make_pair(u_min, v_min);
-
+  if (swapped) {
+    return std::make_pair(v_min, u_min);
+  } else {
+    return std::make_pair(u_min, v_min);
+  }
 }
 
+template<typename U>
+bool SwappedPairLess(const std::pair<U, U>& to_be_swapped, const std::pair<U, U>& second) {
+  if (to_be_swapped.second != second.first) {
+    return to_be_swapped.second < second.first;
+  }
+  return to_be_swapped.first < second.second;
+}
 
 std::pair<Word, Word> GetCanonicalPair(Word u, Word v, size_t max_length) {
   u = CyclicReduce(u);
@@ -320,7 +332,7 @@ std::pair<Word, Word> GetCanonicalPair(Word u, Word v, size_t max_length) {
       continue;
     }
     auto new_candidate = GetOrbitCanonicalPair(uv.first, uv.second, max_length);
-    if (new_candidate < current_min) {
+    if (new_candidate < current_min || SwappedPairLess(new_candidate, current_min)) {
       current_min = new_candidate;
     }
   }

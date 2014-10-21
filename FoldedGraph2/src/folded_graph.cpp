@@ -541,6 +541,87 @@ void FoldedGraph2::CompleteWith(Word r) {
   }
 }
 
+struct CompleteInfo {
+  bool was_completed_ = false;
+  unsigned short nontrivial_path_min_length_ = 0;
+};
+
+
+void FoldedGraph2::FullCompleteWith(Word r, const Word::size_type max_path_length) {
+  std::vector<Word> r_permutations;
+  r_permutations.reserve(r.size());
+  for (size_t shift = 0; shift < r.size(); ++shift, r.CyclicLeftShift()) {
+    r_permutations.push_back(r);
+  }
+
+  std::vector<CompleteInfo> vertices_complete_info;
+  vertices_complete_info.resize(edges_.size());
+
+  auto CompleteVertex = [this, &r_permutations, &vertices_complete_info](Vertex v) {
+    if (edges_[v].combined_with_) {
+      return;
+    }
+    vertices_complete_info.resize(edges_.size());
+    if (vertices_complete_info[v].was_completed_) {
+      return;
+    }
+
+    vertices_complete_info[v].was_completed_ = true;
+
+    for (auto&& r : r_permutations) {
+      PushCycle(r, v);
+    }
+  };
+
+  auto UpdateDistances = [this, &max_path_length, &vertices_complete_info]() -> std::vector<Vertex> {
+    std::vector<Vertex> length_decreased;
+    vertices_complete_info.resize(edges_.size());
+    auto CheckLengthDecreased = [&length_decreased, &vertices_complete_info](Vertex v, Word::size_type new_possible_length) {
+      assert(v != 0);
+      if (vertices_complete_info[v].nontrivial_path_min_length_ == 0 || vertices_complete_info[v].nontrivial_path_min_length_ > new_possible_length) {
+        vertices_complete_info[v].nontrivial_path_min_length_ = new_possible_length;
+        length_decreased.push_back(v);
+      }
+    };
+    for (Vertex v = 1; v < edges_.size(); ++v) {
+      if (edges_[v].combined_with_) {
+        continue;
+      }
+      for (Label l = 0; l < 2 * kAlphabetSize; ++l) {
+        if (edges_[v].weights_[l] != 0) {
+          CheckLengthDecreased(v, 2);
+          CheckLengthDecreased(GetLastCombinedWith(edges_[v].edges_[l]), 2);
+        }
+      }
+    }
+
+    for (auto current_vertex = 0u; current_vertex < length_decreased.size(); ++current_vertex) {
+      auto v = length_decreased[current_vertex];
+      auto current_length = vertices_complete_info[v].nontrivial_path_min_length_;
+      if (current_length == max_path_length) {
+        continue;
+      }
+      for (Label l = 0; l < 2 * kAlphabetSize; ++l) {
+        if (edges_[v].edges_[l]) {
+          CheckLengthDecreased(GetLastCombinedWith(edges_[v].edges_[l]), current_length + 1);
+        }
+      }
+    }
+
+    return length_decreased;
+  };
+
+  auto length_decreased = UpdateDistances();
+  while (!length_decreased.empty()) {
+    for (auto&& v : length_decreased) {
+      CompleteVertex(v);
+    }
+    Reweight();
+    length_decreased = UpdateDistances();
+  }
+}
+
+
 std::vector<Word::size_type> FoldedGraph2::ComputeDistances(Vertex v, Word::size_type max_distance) const {
   v = GetLastCombinedWith(v);
   std::vector<Word::size_type> distance(edges_.size());

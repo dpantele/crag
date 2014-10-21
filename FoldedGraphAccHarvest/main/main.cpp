@@ -300,23 +300,17 @@ class PairToProcess {
     auto complete_count = 0u;
     auto CompleteHarvestNormalize = [this, &g, &complete_count, harvest_length]() {
       ++complete_count;
-      std::cout << "Complete" << std::endl;
       time_.folding().Click();
-      g.CompleteWith(v());
+      g.BoundedCompleteWith(v(), (harvest_length + v().size()) / 2);
+      g.BoundedCompleteWith(v(), (harvest_length + v().size()) / 2);
       time_.folding().Click();
       
       time_.reweight().Click();
       g.Reweight();
       time_.reweight().Click();
 
-      if (complete_count == 2) {
-        g.PrintAsUdot(&std::ofstream("out.gv"));
-      }
-
-      std::cout << "Harvest" << std::endl;
-      std::cout << g.CountNontrivialEdges() << std::endl;
       time_.harvest().Click();
-      auto eq_u = FoldedGraph2(g).Harvest(harvest_length, 1);
+      auto eq_u = g.Harvest(harvest_length, 1);
       time_.harvest().Click();
 
       s_.count_after_harvest_ = eq_u.size();
@@ -333,14 +327,6 @@ class PairToProcess {
 
 
     CompleteHarvestNormalize();
-    auto last_pairs_count = 0u;
-    while (generated_pairs_.size() > last_pairs_count) {
-      last_pairs_count = generated_pairs_.size();
-      std::cout << last_pairs_count << " ";
-      CompleteHarvestNormalize();
-    }
-
-    std::cout << complete_count << std::endl;    
     
     s_.edges_after_reweight_ = g.CountNontrivialEdges();
     s_.graph_size_ = g.size();

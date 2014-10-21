@@ -7,6 +7,7 @@
 #include <deque>
 #include <iostream>
 #include <iomanip>
+#include <iterator>
 #include <fstream>
 #include <future>
 #include <list>
@@ -219,6 +220,13 @@ struct Parameters {
   { }
 };
 
+template<typename U>
+void Unique(std::vector<U>* v) {
+  std::sort(v->begin(), v->end());
+  auto new_end = std::unique(v->begin(), v->end());
+  v->erase(new_end, v->end());
+}
+
 class PairToProcess {
  public:
   PairToProcess(Word u, Word v, const Parameters& p, Stopwatches* timer) 
@@ -249,7 +257,6 @@ class PairToProcess {
   struct Stats {
     int worker_id_ = 0;
     uint64_t graph_size_ = 0;
-    uint64_t edges_before_reweight_ = 0;
     uint64_t edges_after_reweight_ = 0;
     uint64_t count_after_harvest_ = 0;
     uint64_t count_after_normalize_ = 0;
@@ -288,32 +295,55 @@ class PairToProcess {
     time_.folding().Click();
     FoldedGraph2 g;
     g.PushCycle(u(), g.root(), 1);
-    g.FullCompleteWith(v(), harvest_length);
     time_.folding().Click();
 
-    s_.graph_size_ = g.size();
-    s_.edges_before_reweight_ = g.CountNontrivialEdges();
+    auto complete_count = 0u;
+    auto CompleteHarvestNormalize = [this, &g, &complete_count, harvest_length]() {
+      ++complete_count;
+      std::cout << "Complete" << std::endl;
+      time_.folding().Click();
+      g.CompleteWith(v());
+      time_.folding().Click();
+      
+      time_.reweight().Click();
+      g.Reweight();
+      time_.reweight().Click();
 
-    time_.reweight().Click();
-    g.Reweight();
-    time_.reweight().Click();
+      if (complete_count == 2) {
+        g.PrintAsUdot(&std::ofstream("out.gv"));
+      }
 
-    s_.edges_after_reweight_ = g.CountNontrivialEdges();
+      std::cout << "Harvest" << std::endl;
+      std::cout << g.CountNontrivialEdges() << std::endl;
+      time_.harvest().Click();
+      auto eq_u = FoldedGraph2(g).Harvest(harvest_length, 1);
+      time_.harvest().Click();
 
-    time_.harvest().Click();
-    auto eq_u = g.Harvest(harvest_length, 1);
-    time_.harvest().Click();
+      s_.count_after_harvest_ = eq_u.size();
 
-    s_.count_after_harvest_ = eq_u.size();
+      generated_pairs_.clear();
 
-    for (auto u_p = eq_u.begin(); u_p != eq_u.end(); ++u_p) {
-      time_.normalize().Click();
-      generated_pairs_.push_back(GetCanonicalPair(v(), *u_p)); 
-      time_.normalize().Click();
+      for (auto u_p = eq_u.begin(); u_p != eq_u.end(); ++u_p) {
+        time_.normalize().Click();
+        generated_pairs_.push_back(GetCanonicalPair(v(), *u_p)); 
+        time_.normalize().Click();
+      }
+      Unique(&generated_pairs_);
+    };
+
+
+    CompleteHarvestNormalize();
+    auto last_pairs_count = 0u;
+    while (generated_pairs_.size() > last_pairs_count) {
+      last_pairs_count = generated_pairs_.size();
+      std::cout << last_pairs_count << " ";
+      CompleteHarvestNormalize();
     }
-    std::sort(generated_pairs_.begin(), generated_pairs_.end());
-    auto new_end = std::unique(generated_pairs_.begin(), generated_pairs_.end());
-    generated_pairs_.erase(new_end, generated_pairs_.end());  
+
+    std::cout << complete_count << std::endl;    
+    
+    s_.edges_after_reweight_ = g.CountNontrivialEdges();
+    s_.graph_size_ = g.size();
   }
  private:
   static int GetNextId() {
@@ -598,7 +628,7 @@ int main(int argc, const char *argv[]) {
       estats_out << pairs_count_before - next_result.task_id() << ", ";
       estats_out << pairs_count_before << ", ";
       estats_out << next_result.s_.graph_size_ << ", ";
-      estats_out << next_result.s_.edges_before_reweight_ << ", ";
+      estats_out << next_result.s_.edges_after_reweight_ << ", ";
       estats_out << next_result.s_.edges_after_reweight_ << ", ";
       estats_out << next_result.s_.count_after_harvest_ << ", ";
       estats_out << next_result.s_.count_after_normalize_ << ", ";

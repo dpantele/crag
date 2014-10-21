@@ -621,6 +621,46 @@ void FoldedGraph2::FullCompleteWith(Word r, const Word::size_type max_path_lengt
   }
 }
 
+std::vector<Vertex> FoldedGraph2::CloseToNontirivalEdges(const Word::size_type max_path_length) const {
+  std::vector<Word::size_type> vertex_path_length;
+  vertex_path_length.resize(edges_.size());
+
+  std::vector<Vertex> length_decreased;
+  auto CheckLengthDecreased = [&length_decreased, &vertex_path_length](Vertex v, Word::size_type new_possible_length) {
+    assert(v != 0);
+    if (vertex_path_length[v] == 0 || vertex_path_length[v] > new_possible_length) {
+      vertex_path_length[v] = new_possible_length;
+      length_decreased.push_back(v);
+    }
+  };
+  for (Vertex v = 1; v < edges_.size(); ++v) {
+    if (edges_[v].combined_with_) {
+      continue;
+    }
+    for (Label l = 0; l < 2 * kAlphabetSize; ++l) {
+      if (edges_[v].weights_[l] != 0) {
+        CheckLengthDecreased(v, 1);
+        CheckLengthDecreased(GetLastCombinedWith(edges_[v].edges_[l]), 1);
+      }
+    }
+  }
+
+  for (auto id = 0; id < length_decreased.size(); ++id) {
+    auto v = length_decreased[id];
+    auto current_length = vertex_path_length[v];
+    if (current_length == max_path_length) {
+      continue;
+    }
+    for (Label l = 0; l < 2 * kAlphabetSize; ++l) {
+      if (edges_[v].edges_[l]) {
+        CheckLengthDecreased(GetLastCombinedWith(edges_[v].edges_[l]), current_length + 1);
+      }
+    }
+  }
+
+  return length_decreased;
+}
+
 
 std::vector<Word::size_type> FoldedGraph2::ComputeDistances(Vertex v, Word::size_type max_distance) const {
   v = GetLastCombinedWith(v);
@@ -788,6 +828,7 @@ Vertex FoldedGraph2::RestoreHarvestVertex(const Word& harvested_word) const {
 
       Harvest(harvested_word.size(), v, w, &path, &result);
       if (std::binary_search(result.begin(), result.end(), harvested_word)) {
+        assert(std::get<2>(ReadWord(harvested_word, v)) == w);
         return v;
       }
     }
@@ -821,6 +862,34 @@ Word FoldedGraph2::GetPathFromRoot(Vertex v) const {
   }
 
   return paths[v];
+}
+
+void FoldedGraph2::PrintAsUdot(std::ostream* out) const {
+  (*out) << "graph {\n node [shape=point];\n";
+  Vertex i = -1;
+  for (auto&& vertex : edges_) {
+    ++i;
+    if (i == 0) {
+      continue;
+    }
+
+    if (vertex.combined_with_) {
+      continue;
+    }
+
+    for (auto label = 0u; label < 2 * kAlphabetSize; label+=2) {
+      if (vertex.edges_[label]) {
+        (*out) << i << " -- " << vertex.edges_[label];
+        if (vertex.weights_[label] != 0) {
+          (*out) << " [color=red]";
+        }
+
+        (*out) << "\n";
+      }
+    }
+  }
+
+  (*out) << "}";
 }
 
 void FoldedGraph2::PrintAsDot(std::ostream* out) const {

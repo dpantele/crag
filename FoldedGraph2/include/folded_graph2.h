@@ -142,6 +142,8 @@ public:
   //! For every vertex s and every cyclic permutation r' of the word r use pushCycle(r',s). 
   void CompleteWith(Word r);
 
+  void FullCompleteWith(Word r, Word::size_type max_path_length);
+
   //! Tries to reduce the number edges with a non-trivial weight
   void Reweight();
 

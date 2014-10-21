@@ -18,8 +18,8 @@ class CWord;
 //! Stores word of lenght up to 32
 class CWord {
 public:
-  typedef uint32_t size_type;
-  static const int kAlphabetSize = 2;
+  typedef unsigned short size_type;
+  static const unsigned short kAlphabetSize = 2;
   static const size_type kMaxLength = 32;
 
   CWord()

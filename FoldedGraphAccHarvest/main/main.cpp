@@ -279,14 +279,16 @@ class PairToProcess {
   }
 
   void Process() {
+    //this should not happen, but...
+    if (p_.max_total_length <= v().size()) {
+      return;
+    }
+    auto harvest_length = std::min(p_.max_harvest_length, static_cast<Word::size_type>(p_.max_total_length - v().size()));
+
     time_.folding().Click();
     FoldedGraph2 g;
     g.PushCycle(u(), g.root(), 1);
-
-    //for (auto i = 0u; i < p_.complete_count[v().size()]; ++i) {
-      g.CompleteWith(v());
-      g.GrowHair();
-    //}
+    g.FullCompleteWith(v(), harvest_length);
     time_.folding().Click();
 
     s_.graph_size_ = g.size();
@@ -298,13 +300,8 @@ class PairToProcess {
 
     s_.edges_after_reweight_ = g.CountNontrivialEdges();
 
-    //this should not happen, but...
-    if (p_.max_total_length <= v().size()) {
-      return;
-    }
-
     time_.harvest().Click();
-    auto eq_u = g.Harvest(std::min(p_.max_harvest_length, p_.max_total_length - v().size()), 1);
+    auto eq_u = g.Harvest(harvest_length, 1);
     time_.harvest().Click();
 
     s_.count_after_harvest_ = eq_u.size();

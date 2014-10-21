@@ -115,7 +115,7 @@ void PermuteToMin(Word* w) {
   if (w->Empty()) return;
 
   auto current_permutation = *w;
-  for (auto i = 0u; i < w->size() - 1; ++i) {
+  for (auto i = 0u; i < w->size() - 1u; ++i) {
     current_permutation.CyclicLeftShift();
     if (current_permutation < *w) {
       *w = current_permutation;

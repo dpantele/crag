@@ -142,6 +142,8 @@ public:
   //! For every vertex s and every cyclic permutation r' of the word r use pushCycle(r',s). 
   void CompleteWith(Word r);
 
+  std::vector<Vertex> FoldedGraph2::CloseToNontirivalEdges(const Word::size_type max_path_length) const;
+
   void FullCompleteWith(Word r, Word::size_type max_path_length);
 
   //! Tries to reduce the number edges with a non-trivial weight
@@ -186,6 +188,7 @@ public:
     return edges_.size();
   }
 
+  void PrintAsUdot(std::ostream* out) const;
   void PrintAsDot(std::ostream* out) const;
 
   Weight WeightMod(Weight w) const {

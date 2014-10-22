@@ -301,8 +301,10 @@ class PairToProcess {
     auto CompleteHarvestNormalize = [this, &g, &complete_count, harvest_length]() {
       ++complete_count;
       time_.folding().Click();
-      g.BoundedCompleteWith(v(), (harvest_length + v().size()) / 2);
-      g.BoundedCompleteWith(v(), (harvest_length + v().size()) / 2);
+
+      for (auto i = 0u; i < p_.complete_count[v().size() - 1]; ++i) {
+        g.BoundedCompleteWith(v(), (harvest_length + v().size()) / 2);
+      }
       time_.folding().Click();
       
       time_.reweight().Click();

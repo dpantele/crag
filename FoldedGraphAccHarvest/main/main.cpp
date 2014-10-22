@@ -303,7 +303,7 @@ class PairToProcess {
       time_.folding().Click();
 
       for (auto i = 0u; i < p_.complete_count[v().size() - 1]; ++i) {
-        g.BoundedCompleteWith(v(), (harvest_length + v().size()) / 2);
+        g.CompleteWith(v());
       }
       time_.folding().Click();
       

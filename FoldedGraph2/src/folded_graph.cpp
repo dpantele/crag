@@ -151,7 +151,7 @@ void FoldedGraph2::Combine(Vertex v1, Vertex v2) {
 
   Vertex v1_combined_last = v1;
   Vertex next;
-  while (next = edges_[v1_combined_last].current_combined_next_) {
+  while ((next = edges_[v1_combined_last].current_combined_next_)) {
     v1_combined_last = next;
   }
 
@@ -165,8 +165,8 @@ void FoldedGraph2::ForgetCombined() {
     v.current_combined_next_ = kNullVertex;
 
     if (v.combined_with_) {
-      auto combined_with = GetLastCombinedWith(v.combined_with_);
-      for (auto label = 0u; label < kAlphabetSize * 2; ++label) {
+      //auto combined_with = GetLastCombinedWith(v.combined_with_);
+      //for (auto label = 0u; label < kAlphabetSize * 2; ++label) {
         //if (v.edges_[label] != kNullVertex) {
         //  assert(false);
         //  if (vertex(combined_with).edges_[label] != kNullVertex) {
@@ -182,9 +182,9 @@ void FoldedGraph2::ForgetCombined() {
         //  v.weights_[label] = 0;
         //}
 
-        assert(v.edges_[label] == kNullVertex);
-        assert(v.weights_[label] == 0);
-      }
+      //  assert(v.edges_[label] == kNullVertex);
+      //  assert(v.weights_[label] == 0);
+      //}
     } else {
       for (auto& edge : v.edges_) {
         edge = GetLastCombinedWith(edge);
@@ -608,7 +608,7 @@ std::vector<Word::size_type> FoldedGraph2::DistanceToNontrivialEdges(const Word:
     }
   }
 
-  for (auto id = 0; id < length_decreased.size(); ++id) {
+  for (auto id = 0u; id < length_decreased.size(); ++id) {
     auto v = length_decreased[id];
     auto current_length = vertex_path_length[v];
     if (current_length == max_path_length) {
@@ -679,6 +679,8 @@ std::vector<Word> FoldedGraph2::Harvest(Word::size_type k, Vertex v1, Vertex v2,
   return result;
 }
 
+#define UNUSED(x) ((void)x)
+
 void FoldedGraph2::Harvest(
     Word::size_type k, 
     Vertex v2, 
@@ -721,6 +723,7 @@ void FoldedGraph2::Harvest(
   }
 
   assert(IsSortedAndUnique(result->begin() + initial_result_length, result->end()));
+  UNUSED(initial_result_length);
 }
 
 std::vector<Word> FoldedGraph2::Harvest(Word::size_type k, Weight w) {
@@ -933,10 +936,9 @@ void FoldedGraph2::Reweight() {
     auto v = to_check.front();
     to_check.pop_front();
 
-    auto edges_count = 0u;
     w.clear();
     w.reserve(2 * kAlphabetSize);
-    for (auto label = 0; label < 2 * kAlphabetSize; ++label) {
+    for (Label label = 0; label < 2 * kAlphabetSize; ++label) {
       if (edges_[v].edges_[label]) {
         w.push_back(edges_[v].weights_[label]);
       }

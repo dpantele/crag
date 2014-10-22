@@ -42,9 +42,9 @@ void LeftShift(InputIterator first, InputIterator last) {
 /**
  * Shift(2, {1, 2, 3, 4, 5}) is {3, 4, 5, 1, 2}
  */
-void Shift(size_t shift, Word* w);
+//void Shift(size_t shift, Word* w);
 
-Word CyclicReduce(const Word& w);
+Word CyclicReduce(Word w);
 
 //! Returns the minimal cyclic permutation of w
 void PermuteToMin(Word* w);
@@ -65,8 +65,25 @@ void Invert(InputIterator first, InputIterator last) {
   }
 }
 
-std::vector<Word> ReduceAndNormalize(std::vector<Word> words);
+std::vector<Word> ReduceAndMinCycle(std::vector<Word>);
+
+typedef std::array<Word, 2 * Word::kAlphabetSize> Mapping;
+void ReduceMapAndMinCycle(const Mapping& mapping, Word* w);
+
+void PermuteToMinWithInverse(Word* w);
+
+std::set<std::pair<Word, Word>> MinimizeTotalLength(Word u, Word v, size_t max_length = 0);
+
+std::pair<Word, Word> GetCanonicalPair(const char* u, const char* v, size_t max_length = 0);
+std::pair<Word, Word> GetCanonicalPair(Word u, Word v, size_t max_length = 0);
+void GetCanonicalPairs(Word* u, std::vector<Word>* vs);
+
+Word Map(Word w, const Mapping& mapping);
 
 //! w -> s^(-1) w s
-Word Conjugate(Word w, const Word& s);
+Word Conjugate(Word w, Word s);
+
+uint64_t ipow(uint64_t base, uint64_t exp);
+
+std::set<Word> GenAllWords(unsigned int max_length);
 } //namespae crag

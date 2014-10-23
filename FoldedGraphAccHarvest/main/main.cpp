@@ -295,40 +295,30 @@ class PairToProcess {
     time_.folding().Click();
     FoldedGraph2 g;
     g.PushCycle(u(), g.root(), 1);
+
+    for (auto i = 0u; i < p_.complete_count[v().size() - 1]; ++i) {
+      g.BoundedCompleteWith(v(), (harvest_length + v().size()) / 2);
+    }
     time_.folding().Click();
-
-    auto complete_count = 0u;
-    auto CompleteHarvestNormalize = [this, &g, &complete_count, harvest_length]() {
-      ++complete_count;
-      time_.folding().Click();
-
-      for (auto i = 0u; i < p_.complete_count[v().size() - 1]; ++i) {
-        g.CompleteWith(v());
-      }
-      time_.folding().Click();
       
-      time_.reweight().Click();
-      g.Reweight();
-      time_.reweight().Click();
+    time_.reweight().Click();
+    g.Reweight();
+    time_.reweight().Click();
 
-      time_.harvest().Click();
-      auto eq_u = g.Harvest(harvest_length, 1);
-      time_.harvest().Click();
+    time_.harvest().Click();
+    auto eq_u = g.Harvest(harvest_length, 1);
+    time_.harvest().Click();
 
-      s_.count_after_harvest_ = eq_u.size();
+    s_.count_after_harvest_ = eq_u.size();
 
-      generated_pairs_.clear();
+    generated_pairs_.clear();
 
-      for (auto u_p = eq_u.begin(); u_p != eq_u.end(); ++u_p) {
-        time_.normalize().Click();
-        generated_pairs_.push_back(GetCanonicalPair(v(), *u_p)); 
-        time_.normalize().Click();
-      }
-      Unique(&generated_pairs_);
-    };
-
-
-    CompleteHarvestNormalize();
+    time_.normalize().Click();
+    for (auto u_p = eq_u.begin(); u_p != eq_u.end(); ++u_p) {
+      generated_pairs_.push_back(GetCanonicalPair(v(), *u_p)); 
+    }
+    Unique(&generated_pairs_);
+    time_.normalize().Click();
     
     s_.edges_after_reweight_ = g.CountNontrivialEdges();
     s_.graph_size_ = g.size();

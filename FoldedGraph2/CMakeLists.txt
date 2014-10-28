@@ -6,6 +6,7 @@ include("../cmake/common.cmake")
 
 crag_library(FoldedGraph2
   folded_graph
+  compressed_word
 )
 
 crag_test(folded_graph 

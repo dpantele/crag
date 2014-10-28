@@ -81,10 +81,9 @@ struct Stopwatch {
       if (IsRunning()) {
         Click();
       }
-      if (clicks_count_) {
+      if (stopwatch_) {
         stopwatch_->Report(this);
-        clicks_count_ = 0;
-        duration_ = clock::duration(0);
+        stopwatch_ = 0;
       }
     }
 
@@ -291,6 +290,37 @@ class PairToProcess {
     if (p_.max_total_length <= v().size()) {
       return;
     }
+
+    Word::size_type common_part_length, common_u_begin, common_v_begin;
+    std::tie(common_u_begin, common_v_begin, common_part_length) = LongestCommonSubwordCyclic(u(), v());
+    if (common_part_length > v().size() / 2) {
+      auto u_copy = u();
+      u_copy.CyclicLeftShift(common_u_begin); //u = as
+      auto v_copy = v(); 
+      v_copy.CyclicLeftShift(common_v_begin); //v = at
+      v_copy.PopFront(common_part_length);    //v = t
+      v_copy.Invert();                        //v = T
+      u_copy.PopFront(common_part_length);    //u = s
+      v_copy.PushBack(u_copy);                //v = Ts
+      generated_pairs_.clear();
+      generated_pairs_.push_back(GetCanonicalPair(v(), v_copy));
+      return;
+    }
+
+    //if (common_part_length > u().size() / 2) {
+    //  auto v_copy = v();
+    //  v_copy.CyclicLeftShift(common_v_begin); //v = as
+    //  auto u_copy = u(); 
+    //  u_copy.CyclicLeftShift(common_u_begin); //u = at
+    //  u_copy.PopFront(common_part_length);    //u = t
+    //  u_copy.Invert();                        //u = T
+    //  v_copy.PopFront(common_part_length);    //v = s
+    //  u_copy.PushBack(v_copy);                //u = Ts ~ v
+    //  generated_pairs_.clear();
+    //  generated_pairs_.push_back(GetCanonicalPair(u(), u_copy));
+    //  return;
+    //}
+
     auto harvest_length = std::min(p_.max_harvest_length, static_cast<Word::size_type>(p_.max_total_length - v().size()));
 
     time_.folding().Click();

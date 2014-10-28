@@ -257,6 +257,7 @@ class PairToProcess {
   struct Stats {
     int worker_id_ = 0;
     uint64_t graph_size_ = 0;
+    uint64_t edges_before_reweight_ = 0;
     uint64_t edges_after_reweight_ = 0;
     uint64_t count_after_harvest_ = 0;
     uint64_t count_after_normalize_ = 0;
@@ -301,9 +302,13 @@ class PairToProcess {
     }
     time_.folding().Click();
       
+    s_.edges_before_reweight_ = g.CountNontrivialEdges();
+
     time_.reweight().Click();
     g.Reweight();
     time_.reweight().Click();
+
+    s_.edges_after_reweight_ = g.CountNontrivialEdges();
 
     time_.harvest().Click();
     auto eq_u = g.Harvest(harvest_length, 1);
@@ -320,8 +325,8 @@ class PairToProcess {
     Unique(&generated_pairs_);
     time_.normalize().Click();
     
-    s_.edges_after_reweight_ = g.CountNontrivialEdges();
     s_.graph_size_ = g.size();
+    s_.count_after_normalize_ = generated_pairs_.size();
   }
  private:
   static int GetNextId() {
@@ -442,6 +447,7 @@ int main(int argc, const char *argv[]) {
   std::ofstream unproc_words;
   std::ofstream proc_words;
   std::ofstream estats_out;
+  std::ofstream args_out;
 
   for (int argi = 1; argi < argc; ++argi) {
     auto arg = Split(argv[argi]);
@@ -484,6 +490,7 @@ int main(int argc, const char *argv[]) {
       unproc_words.open(arg[1] + "_unproc_words.txt");
       unproc_words << "u, v\n";
       estats_out.open(arg[1] + "_ext.txt");
+      args_out.open(arg[1] + "_args.txt");
     }
   }
 
@@ -498,22 +505,23 @@ int main(int argc, const char *argv[]) {
   *out <<                 ", harvest time";
   *out << std::endl;
 
+  if (args_out.is_open()) {
+    args_out << "Max length for harvest (maxhl): " << p.max_harvest_length << std::endl;
+    args_out << "Max total length of a pair (maxtl): " << p.max_total_length << std::endl;
+    args_out << "Workers count (j): " << p.workers_count_ << std::endl;
+    args_out << "Pairs are also normalized using automorphisms (use_autos): yes";
+    args_out << "Initial words (init): " << p.initial_strings.first << " | " << p.initial_strings.second << std::endl;
+    args_out << "\nHow many times graph is completed with v: " << std::endl;
+    args_out << "Length of v: ";
+    for (auto i = 0u; i < p.complete_count.size(); ++i) {
+      args_out << std::setw(2) << i << ' ';
+    }
+    args_out << "\nTimes:       ";
+    for (auto i = 0u; i < p.complete_count.size(); ++i) {
+      args_out << std::setw(2) << p.complete_count[i] << ' ';
+    }
+  }
   if (estats_out.is_open()) {
-    estats_out << "Configuration: " << std::endl;
-    estats_out << "Max length for harvest: " << p.max_harvest_length << std::endl;
-    estats_out << "Max total length of a pair: " << p.max_total_length << std::endl;
-    estats_out << "Pairs are also normalized using automorphisms: yes";
-    estats_out << "Initial words:          " << p.initial_strings.first << " | " << p.initial_strings.second << std::endl;
-    estats_out << "\nHow many times graph is completed with v: " << std::endl;
-    estats_out << "Length of v: ";
-    for (auto i = 0u; i < p.complete_count.size(); ++i) {
-      estats_out << std::setw(2) << i << ' ';
-    }
-    estats_out << "\nTimes:       ";
-    for (auto i = 0u; i < p.complete_count.size(); ++i) {
-      estats_out << std::setw(2) << p.complete_count[i] << ' ';
-    }
-    estats_out << "\n\n";
     estats_out << "iteration, unprocessed count, total count, ";
     estats_out << "graph size, ";
     estats_out << "non-zero edges before reweight, ";
@@ -606,7 +614,7 @@ int main(int argc, const char *argv[]) {
       estats_out << pairs_count_before - next_result.task_id() << ", ";
       estats_out << pairs_count_before << ", ";
       estats_out << next_result.s_.graph_size_ << ", ";
-      estats_out << next_result.s_.edges_after_reweight_ << ", ";
+      estats_out << next_result.s_.edges_before_reweight_ << ", ";
       estats_out << next_result.s_.edges_after_reweight_ << ", ";
       estats_out << next_result.s_.count_after_harvest_ << ", ";
       estats_out << next_result.s_.count_after_normalize_ << ", ";

@@ -10,6 +10,7 @@
 #include <list>
 #include <string>
 #include <map>
+#include <memory>
 #include <cstdio>
 
 using namespace crag;
@@ -21,21 +22,27 @@ char LabelToChar(Label l) {
 }
 
 #ifdef _MSC_VER
-#define snprintf _snprintf_s
+#define snprintf(BUFFER, SIZE, ...) _snprintf_s(BUFFER, SIZE, _TRUNCATE, __VA_ARGS__)
 #endif 
 
 int main(int argc, const char *argv[]) {
-  static const char filename_template[] = "tb_c2_%s_unproc_words.txt";
-  static const char out_filename[] = "tb_c2_lengths_count.txt";
-  static const size_t filename_size = sizeof(filename_template) + 5;
-  static const char * parameters[] = {"15", "16", "17", "18", "19", "20", "21", "22", "23"};//, "24"};
+  if (argc != 5) {
+    std::cerr << "Usage: input_filename_pattern output_filename first_length last_length\nExample: h3_%d_unproc_words.txt h3_lengths_count.txt 10 16\n";
+    exit(-1);
+  }
+  static const char* filename_template = argv[1];
+  static const char* out_filename = argv[2];
+  static const size_t filename_size = strlen(filename_template) + 5;
+  
+  static const auto first_length = std::stoi(argv[3]);
+  static const auto last_length = std::stoi(argv[4]);
 
   std::set<size_t> total_lengths;
   std::map<std::string, std::map<size_t, uint64_t>> length_count;
-  for (auto&& parameter : parameters) {
-    char filename[filename_size] = {};
-    snprintf(filename, filename_size, filename_template, parameter);
-    std::ifstream words_in(filename);
+  for (auto parameter = first_length; parameter <= last_length; ++parameter) {
+    std::unique_ptr<char[]> filename(new char[filename_size]);
+    snprintf(filename.get(), filename_size, filename_template, parameter);
+    std::ifstream words_in(filename.get());
 
     std::map<size_t, uint64_t> length;
 
@@ -54,7 +61,7 @@ int main(int argc, const char *argv[]) {
         total_lengths.insert(next_pair.first.size() + next_pair.second.size());
       }
     }
-    length_count.emplace(parameter, std::move(length));
+    length_count.emplace(std::to_string(parameter), std::move(length));
   }
 
   std::ofstream out(out_filename);

@@ -7,8 +7,10 @@
 #ifndef CRAG_COMPRESSED_WORD_H_
 #define CRAG_COMPRESSED_WORD_H_
 
+#include <assert.h>
 #include <cstdint>
 #include <iostream>
+#include <tuple>
 #include <random>
 
 namespace crag {
@@ -289,6 +291,11 @@ private:
 
 };
 
+//! Find the position of the longest a such that uu = u_1 a u_2, vv = v_1 a v_2.
+/**
+ * \returns tuple(|u_1|, |v_1|, |a|)
+*/
+std::tuple<CWord::size_type, CWord::size_type, CWord::size_type> LongestCommonSubwordCyclic(CWord u, CWord v);
 
 }
 

@@ -290,7 +290,7 @@ class PairToProcess {
     if (p_.max_total_length <= v().size()) {
       return;
     }
-
+#ifdef CRAG_FOLDED_GRAPH_ACC_TRY_SPLIT
     Word::size_type common_part_length, common_u_begin, common_v_begin;
     std::tie(common_u_begin, common_v_begin, common_part_length) = LongestCommonSubwordCyclic(u(), v());
     if (common_part_length > v().size() / 2) {
@@ -306,20 +306,7 @@ class PairToProcess {
       generated_pairs_.push_back(GetCanonicalPair(v(), v_copy));
       return;
     }
-
-    //if (common_part_length > u().size() / 2) {
-    //  auto v_copy = v();
-    //  v_copy.CyclicLeftShift(common_v_begin); //v = as
-    //  auto u_copy = u(); 
-    //  u_copy.CyclicLeftShift(common_u_begin); //u = at
-    //  u_copy.PopFront(common_part_length);    //u = t
-    //  u_copy.Invert();                        //u = T
-    //  v_copy.PopFront(common_part_length);    //v = s
-    //  u_copy.PushBack(v_copy);                //u = Ts ~ v
-    //  generated_pairs_.clear();
-    //  generated_pairs_.push_back(GetCanonicalPair(u(), u_copy));
-    //  return;
-    //}
+#endif
 
     auto harvest_length = std::min(p_.max_harvest_length, static_cast<Word::size_type>(p_.max_total_length - v().size()));
 

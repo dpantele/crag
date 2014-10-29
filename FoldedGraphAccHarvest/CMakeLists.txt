@@ -11,9 +11,14 @@ crag_library(AccHarvest
 target_link_libraries(AccHarvest PUBLIC FoldedGraph2)
 crag_test(acc FoldedGraph2 AccHarvest)
 
+OPTION(FOLDED_GRAPH_ACC_TRY_SPLIT "If we are processing pair (u, v) = (as, bs), where |s| > |v| / 2, simply replace it with (aB, bs)" Off)
+
 crag_main(main AccHarvest)
 find_package(Threads REQUIRED)
 target_link_libraries(FoldedGraphAccHarvest_main_main PRIVATE "${CMAKE_THREAD_LIBS_INIT}")
+if(FOLDED_GRAPH_ACC_TRY_SPLIT)
+  target_compile_definitions(FoldedGraphAccHarvest_main_main PRIVATE CRAG_FOLDED_GRAPH_ACC_TRY_SPLIT)
+endif()
 
 crag_main(auto_check AccHarvest)
 crag_main(compare_generated_words AccHarvest)

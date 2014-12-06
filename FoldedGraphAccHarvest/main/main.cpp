@@ -214,8 +214,10 @@ struct Parameters {
 
   Parameters()
     : complete_count(Word::kMaxLength + 1, 2)
-    , initial_strings("xyxYXY", "xxxYYYY")
-    , required_strings("x", "y")
+    , initial_strings("xxxyXyy", "xyyxYYXy")
+    , required_strings("xxyXXYY", "xyyxYYXy")
+    //, initial_strings("xyxYXY", "xxxYYYY")
+    //, required_strings("x", "y")
   { }
 };
 
@@ -290,7 +292,7 @@ class PairToProcess {
     if (p_.max_total_length <= v().size()) {
       return;
     }
-#ifdef CRAG_FOLDED_GRAPH_ACC_TRY_SPLIT
+#ifdef TCRAG_FOLDED_GRAPH_ACC_TRY_SPLIT
     Word::size_type common_part_length, common_u_begin, common_v_begin;
     std::tie(common_u_begin, common_v_begin, common_part_length) = LongestCommonSubwordCyclic(u(), v());
     if (common_part_length > v().size() / 2) {
@@ -411,6 +413,14 @@ public:
     std::lock_guard<std::mutex> lock(m_);
     return queue_.size();
   }
+
+  void clear() {
+    std::lock_guard<std::mutex> lock(m_);
+    while (!queue_.empty()) {
+      queue_.pop();
+    }
+  }
+
 };
 template<typename Task>
 class Worker {
@@ -566,11 +576,6 @@ int main(int argc, const char *argv[]) {
   shared_queue<PairToProcess*> tasks;
   Stopwatches total_time;
 
-  std::vector<std::unique_ptr<Worker<PairToProcess*>>> workers;
-  for (auto i = 0; i < p.workers_count_; ++i) {
-    workers.push_back(Worker<PairToProcess*>::Create(&tasks));
-  }
-
   Stopwatch overall_time;
   auto overall_time_stamp = overall_time.NewIter();
   overall_time_stamp.Click();
@@ -599,6 +604,11 @@ int main(int argc, const char *argv[]) {
 
   auto initial_task_id = AddPair(initial, 0);
   AddPair(Swapped(initial), initial_task_id);
+
+  std::vector<std::unique_ptr<Worker<PairToProcess*>>> workers;
+  for (auto i = 0; i < p.workers_count_; ++i) {
+    workers.push_back(Worker<PairToProcess*>::Create(&tasks));
+  }
 
   while (!all_pairs.count(required) && !future_results.empty()) {
     future_results.front().Wait();
@@ -666,6 +676,9 @@ int main(int argc, const char *argv[]) {
   }
   overall_time_stamp.Click();
   overall_time_stamp.Reset();
+
+  tasks.clear();
+
   auto average_other_time = (overall_time.total_time() - total_time.total()) / total_time.folding().iterations();
   *out << "total time: " << overall_time.total_time() << std::endl;
   *out << "total rest(av): " << average_other_time << std::endl;

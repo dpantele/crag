@@ -42,8 +42,9 @@ unsigned int PairComplexity(const Word& u, const Word& v) {
 
   auto complexity = 0u;
   for (; !IsSingleVertex(); ++complexity) {
-    g.CompleteWith(u);
-    g.CompleteWith(v);
+    auto g_size = g.size();
+    g.CompleteWith(u, g_size);
+    g.CompleteWith(v, g_size);
   }
 
   return complexity;

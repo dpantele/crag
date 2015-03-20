@@ -529,9 +529,12 @@ bool FoldedGraph2::PushCycle(Word w, Vertex s, Weight weight) {
 }
 
 void FoldedGraph2::CompleteWith(Word r) {
-  auto initial_vertex_count = edges_.size();
+  CompleteWith(std::move(r), edges_.size());
+}
+
+void FoldedGraph2::CompleteWith(Word r, size_t max_id) {
   for (size_t shift = 0; shift < r.size(); ++shift, r.CyclicLeftShift()) {
-    for (auto vertex = root(); vertex < initial_vertex_count; ++vertex) {
+    for (auto vertex = root(); vertex < max_id; ++vertex) {
       if (edges_[vertex].combined_with_) {
         continue;
       }

@@ -144,7 +144,7 @@ Vertex reduce(const Vertex& vertex,
               return length.second > last_id;
             });
 
-            max_distance = std::max(max_distance, current_distance);
+            max_distance = std::max(max_distance, static_cast<decltype(max_distance)>(current_distance));
             distances(current_distance);
 
             reduction.second = this_reduction_id;

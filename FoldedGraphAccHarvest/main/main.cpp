@@ -292,7 +292,7 @@ class PairToProcess {
     if (p_.max_total_length <= v().size()) {
       return;
     }
-#ifdef TCRAG_FOLDED_GRAPH_ACC_TRY_SPLIT
+#ifdef CRAG_FOLDED_GRAPH_ACC_TRY_SPLIT
     Word::size_type common_part_length, common_u_begin, common_v_begin;
     std::tie(common_u_begin, common_v_begin, common_part_length) = LongestCommonSubwordCyclic(u(), v());
     if (common_part_length > v().size() / 2) {

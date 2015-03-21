@@ -7,7 +7,7 @@ function(crag_library name)
   endwhile()
   file(GLOB headers "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h")
   add_library(${name} STATIC ${srcs} ${headers})
-  target_include_directories(${name} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
+  target_include_directories(${name} PUBLIC "include")
   if (UNIX)
     target_compile_options(${name} PRIVATE -Wall)
   endif()
@@ -19,7 +19,7 @@ endfunction()
 function(crag_main name)
   get_filename_component(LIBNAME ${CMAKE_CURRENT_SOURCE_DIR} NAME)
   file(GLOB headers "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h")
-  add_executable("${LIBNAME}_main_${name}" "main/${name}.cpp")
+  add_executable("${LIBNAME}_main_${name}" "main/${name}.cpp" ${headers})
 
   set_target_properties("${LIBNAME}_main_${name}" PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY bin
@@ -28,7 +28,7 @@ function(crag_main name)
 
   list(REMOVE_AT ARGV 0)
   foreach(lib ${ARGV})
-    target_link_libraries("${LIBNAME}_main_${name}" PUBLIC ${lib})
+    target_link_libraries("${LIBNAME}_main_${name}" PRIVATE ${lib})
   endforeach()
 
   if (UNIX)
@@ -40,7 +40,8 @@ endfunction()
 function(crag_test name)
   get_filename_component(LIBNAME ${CMAKE_CURRENT_SOURCE_DIR} NAME)
 
-  add_executable("${LIBNAME}_test_${name}" "test/${name}.cpp")
+  file(GLOB headers "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h")
+  add_executable("${LIBNAME}_test_${name}" "test/${name}.cpp" ${headers})
   target_link_libraries("${LIBNAME}_test_${name}" PRIVATE gtest PRIVATE gtest_main)
 
   set_target_properties("${LIBNAME}_test_${name}" PROPERTIES
@@ -50,7 +51,7 @@ function(crag_test name)
 
   list(REMOVE_AT ARGV 0)
   foreach(lib ${ARGV})
-    target_link_libraries("${LIBNAME}_test_${name}" PUBLIC ${lib})
+    target_link_libraries("${LIBNAME}_test_${name}" PRIVATE  ${lib})
   endforeach()
 
   if (UNIX)

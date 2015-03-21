@@ -2,8 +2,6 @@
 cmake_minimum_required(VERSION 2.8.12)
 cmake_policy(VERSION 2.8.12)
 
-include("../cmake/common.cmake")
-
 crag_library(SLPv1
   WhiteheadGraph
   FreeGroup
@@ -15,8 +13,9 @@ crag_library(SLPv1
 
 target_link_libraries(SLPv1
   PUBLIC Elt
-  PRIVATE gmpxx
+  PUBLIC gmpxx
   PUBLIC Maps
+  PRIVATE gmp
   PRIVATE SbgpFG
 )
 

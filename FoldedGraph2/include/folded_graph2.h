@@ -142,6 +142,9 @@ public:
   //! For every vertex s and every cyclic permutation r' of the word r use pushCycle(r',s). 
   void CompleteWith(Word r);
 
+  void CompleteWith(Word r, size_t max_id);
+
+
   std::vector<Word::size_type> DistanceToNontrivialEdges(const Word::size_type max_path_length) const;
 
   void BoundedCompleteWith(Word r, Word::size_type max_path_length);
@@ -230,8 +233,6 @@ public:
   void ShiftWeight(Vertex v, Weight shift);
 
 };
-
-
 
 } //namespace crag
 

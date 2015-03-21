@@ -19,9 +19,6 @@ target_include_directories(boost_pool INTERFACE ${source_dir})
 target_compile_definitions(boost_pool INTERFACE BOOST_DISABLE_THREADS)
 add_dependencies(boost_pool boost_pool_external)
 
-
-include(../cmake/common.cmake)
-
 crag_library(boost_pool_gmp_allocator
   gmp_boost_pool_allocator
 )

@@ -1,6 +1,7 @@
 #include "gtest/gtest.h"
 #include "folded_graph2.h"
 
+#include <algorithm>
 #include <chrono>
 #include <deque>
 #include <fstream>
@@ -577,7 +578,7 @@ TEST_P(GraphsPushReadCycles, CompareRootHarvest) {
 
   auto max_length = 0u;
   for (auto& cycle : GetParam().first) {
-    max_length = std::max(max_length, cycle.word().size());
+    max_length = std::max(max_length, static_cast<decltype(max_length)>(cycle.word().size()));
   }
 
   auto harvest_length = max_length + 2;

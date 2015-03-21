@@ -6,6 +6,7 @@ IF(UNIX)
   #also enables eclipse c++11 features
   #dirty hack, but the only one I can find
   set(CMAKE_CXX_COMPILER_ARG1 "-std=c++11")
+  add_definitions(-std=c++11)
 ENDIF(UNIX)
 
 # Name of the project
@@ -30,6 +31,8 @@ IF(MSVC)
 ENDIF(MSVC)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON) #turn on folders for VS
+
+include("cmake/common.cmake")
 
 # Add subdirectories (All new directories should go here)
 # add_subdirectory(3rdParty/ezOptionParser)

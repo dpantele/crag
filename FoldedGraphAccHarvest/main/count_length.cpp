@@ -12,6 +12,7 @@
 #include <map>
 #include <memory>
 #include <cstdio>
+#include <cstring>
 
 using namespace crag;
 

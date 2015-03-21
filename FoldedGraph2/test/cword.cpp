@@ -3,9 +3,7 @@
 
 #include <chrono>
 #include <map>
-#include <set>
 #include <memory>
-#include <random>
 
 namespace crag {
 
@@ -56,8 +54,8 @@ TEST(CWord, PushFrontPopBack) {
   CWord w;
   for (auto i = 0u; i < CWord::kMaxLength; ++i) {
     w.PushFront(GetLabel(i));
-    ASSERT_EQ(GetLabel(i), w.GetFront());
-    ASSERT_EQ(GetLabel(0), w.GetBack());
+    ASSERT_EQ(GetLabel(i), w.GetFront()) << "Iteration " << i;
+    ASSERT_EQ(GetLabel(0), w.GetBack())  << "Iteration " << i;
   }
   auto front_l = GetLabel(CWord::kMaxLength - 1);
   for (auto i = 0u; i < CWord::kMaxLength; ++i) {
@@ -88,8 +86,7 @@ TEST(CWord, Flip2) {
 
 TEST(CWord, Inverse1) {
   CWord a = {0, 2, 1};
-  a.Invert();
-  EXPECT_EQ(CWord({0, 3, 1}), a);
+  EXPECT_EQ(CWord({0, 3, 1}), a.Inverse());
 }
 
 TEST(CWord, Inverse2) {

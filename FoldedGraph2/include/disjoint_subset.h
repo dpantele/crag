@@ -22,6 +22,13 @@ class DisjointSubset {
     , label_(std::move(l))
   { }
 
+  template<typename ... LabelArgs>
+  DisjointSubset(LabelArgs&&... label_construct_args)
+    : size_(1)
+    , parent_(this)
+    , label_(std::forward<LabelArgs>(label_construct_args)...)
+  { }
+
   //! Construct an invalid element
   template<typename NullPtrT>
   DisjointSubset(NullPtrT,

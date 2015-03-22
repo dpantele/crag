@@ -30,6 +30,10 @@ IF(MSVC)
   endforeach()
 ENDIF(MSVC)
 
+if(UNIX)
+  set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g")
+endif(UNIX)
+
 set_property(GLOBAL PROPERTY USE_FOLDERS ON) #turn on folders for VS
 
 include("cmake/common.cmake")

@@ -42,6 +42,25 @@ TEST(DisjointSubset, NoConsturct) {
   EXPECT_EQ(1, a.root().a_);
 }
 
+struct NonCopyable {
+  NonCopyable(const NonCopyable&) = delete;
+  NonCopyable(NonCopyable&&) = delete;
+
+  int a_;
+
+  NonCopyable(int a)
+    : a_(a)
+  { }
+};
+
+TEST(DisjointSubset, PlacementConstruct) {
+  DisjointSubset<NonCopyable> a(1);
+
+  EXPECT_EQ(1, a.size());
+  EXPECT_EQ(1, a.root().a_);
+}
+
+
 TEST(DisjointSubset, Merge) {
   DisjointSubset<int> a(1);
   DisjointSubset<int> b(2);

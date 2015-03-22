@@ -13,6 +13,7 @@ function(crag_library name)
   endif()
   set_target_properties(${name} PROPERTIES
     ARCHIVE_OUTPUT_DIRECTORY lib
+    LINKER_LANGUAGE CXX
   )
 endfunction()
 

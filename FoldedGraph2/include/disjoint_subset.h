@@ -44,7 +44,7 @@ class DisjointSubset {
     bool IsLabelDefaultConstructible = std::is_default_constructible<Label>::value
     , typename = typename std::enable_if<IsLabelDefaultConstructible>::type
   >
-  DisjointSubset()
+  DisjointSubset(std::nullptr_t)
     : size_(0)
     , parent_(nullptr)
     , label_()

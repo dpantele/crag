@@ -19,7 +19,7 @@ TEST(DisjointSubset, SingleElem) {
 }
 
 TEST(DisjointSubset, Null) {
-  DisjointSubset<int> a;
+  DisjointSubset<int> a(nullptr);
 
   EXPECT_EQ(0, a.size());
   EXPECT_EQ(int(), a.root());

@@ -4,6 +4,7 @@
 */
 #include <cassert>
 #include <cstddef>
+#include <stdexcept>
 #include <utility>
 
 #pragma once
@@ -29,13 +30,21 @@ class DisjointSubset {
     , label_(std::forward<LabelArgs>(label_construct_args)...)
   { }
 
-  //! Construct an invalid element
-  template<typename NullPtrT>
-  DisjointSubset(NullPtrT,
-    typename std::enable_if<
-      std::is_same<NullPtrT, std::nullptr_t>::value
-        && std::is_default_constructible<Label>::value
-    >::type* = 0)
+  void Reset(Label&& l) {
+    if (parent_) {
+      throw std::logic_error("You may not reset non-empty subsets");
+    }
+
+    parent_ = this;
+    size_ = 1;
+    label_ = std::move(l);
+  }
+  //! Construct an empty subset
+  template<
+    bool IsLabelDefaultConstructible = std::is_default_constructible<Label>::value
+    , typename = typename std::enable_if<IsLabelDefaultConstructible>::type
+  >
+  DisjointSubset()
     : size_(0)
     , parent_(nullptr)
     , label_()

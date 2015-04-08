@@ -65,7 +65,7 @@ TEST(DisjointSubset, Merge) {
   DisjointSubset<int> a(1);
   DisjointSubset<int> b(2);
 
-  EXPECT_EQ(1, a.Merge(&b));
+  EXPECT_EQ(1, Merge(&a, &b));
 
   EXPECT_EQ(2, a.size());
   EXPECT_EQ(1, a.root());
@@ -77,7 +77,7 @@ TEST(DisjointSubset, ConstLabelMerge) {
   DisjointSubset<const int> a(1);
   DisjointSubset<const int> b(2);
 
-  EXPECT_EQ(1, a.Merge(&b));
+  EXPECT_EQ(1, Merge(&a, &b));
 
   EXPECT_EQ(2, a.size());
   EXPECT_EQ(1, a.root());
@@ -89,7 +89,7 @@ TEST(DisjointSubset, ConstSubsetRoot) {
   DisjointSubset<int> a(1);
   DisjointSubset<int> b(2);
 
-  EXPECT_EQ(1, a.Merge(&b));
+  EXPECT_EQ(1, Merge(&a, &b));
 
   EXPECT_EQ(2, a.size());
   EXPECT_EQ(1, a.root());
@@ -114,7 +114,7 @@ TEST(DisjointSubset, MergeLinear) {
   }
 
   for (auto i = 0u; i < 16; ++i) {
-    EXPECT_EQ(0, elems[0].Merge(&elems[i]));
+    EXPECT_EQ(i == 0 ? 0 : 1, Merge(&elems[0], &elems[i]));
     EXPECT_EQ(i + 1, elems[i].size());
     EXPECT_EQ(0, elems[i].root());
     EXPECT_EQ(i + 1, elems[0].size());
@@ -130,7 +130,7 @@ TEST(DisjointSubset, MergeLinearFromSmall) {
   }
 
   for (auto i = 1u; i < 16; ++i) {
-    EXPECT_EQ(1, elems[i].Merge(&elems[0]));
+    EXPECT_EQ(1, elems[i].MergeWith(&elems[0]).first);
     EXPECT_EQ(i + 1, elems[i].size());
     EXPECT_EQ(1, elems[i].root());
     EXPECT_EQ(i + 1, elems[0].size());
@@ -147,7 +147,7 @@ TEST(DisjointSubset, MergeLinearNeighbours) {
   }
 
   for (auto i = 0u; i < 15; ++i) {
-    EXPECT_EQ(0, elems[i].Merge(&elems[i + 1]));
+    EXPECT_EQ(0, elems[i].MergeWith(&elems[i + 1]).first);
     EXPECT_EQ(i + 2, elems[i].size());
     EXPECT_EQ(0, elems[i].root());
     EXPECT_EQ(i + 2, elems[0].size());
@@ -164,7 +164,7 @@ TEST(DisjointSubset, MergeBinary) {
 
   for (auto i = 1u; i <= 4; ++i) {
     for (auto j = 0u; j < 16u; j += (1u << i)) {
-      EXPECT_EQ(j, elems[j].Merge(&elems[j + (1u << (i - 1))]));
+      EXPECT_EQ(j, elems[j].MergeWith(&elems[j + (1u << (i - 1))]).first);
       EXPECT_EQ((1u << i), elems[j].size());
     }
   }

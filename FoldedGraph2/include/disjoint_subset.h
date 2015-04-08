@@ -58,6 +58,14 @@ class DisjointSubset {
     return FindRoot()->label_;
   }
 
+  bool operator==(const DisjointSubset& other) const {
+    return FindRoot() == other.FindRoot();
+  }
+
+  bool operator!=(const DisjointSubset& other) const {
+    return FindRoot() != other.FindRoot();
+  }
+
   //! Get the label of the root of the subset
   Label& root() {
     return FindRoot()->label_;
@@ -70,7 +78,7 @@ class DisjointSubset {
 
   //! Check if this node is the root of the tree
   bool IsRoot() const {
-    return parent_ == this;
+    return !parent_ || parent_ == this;
   }
 
   //! Check if subset is invalid
@@ -78,36 +86,27 @@ class DisjointSubset {
     return parent_ != nullptr;
   }
 
-  //! Merge this subset with another one, return the label of the new root
-  Label Merge(DisjointSubset<Label>* other) {
-    if (!*this) {
-      return other->Merge(this);
+  //! Merge two subsets
+  /**
+   * @retval 1 If lhs is a new root
+   * @retval 0 If lhs and rhs were representing the same set
+   * @retval -1 If rhs is a new root
+   */
+  template<typename T>
+  friend inline int Merge(DisjointSubset<T>* lhs, DisjointSubset<T>* rhs);
+
+  //! Merge this subset with another one, return the label of the new root and the discarded label
+  std::pair<Label&, Label&> MergeWith(DisjointSubset<Label>* other) {
+    if (!this->IsRoot() || !other->IsRoot()) {
+      return FindRoot()->MergeWith(other->FindRoot());
     }
 
-    if (!*other) {
-      return this->label_;
+    auto res = Merge(this, other);
+    if (res >= 0) {
+      return std::pair<Label&, Label&>(this->label_, other->label_);
+    } else {
+      return std::pair<Label&, Label&>(other->label_, this->label_);
     }
-
-    if (!this->IsRoot()) {
-      return FindRoot()->Merge(other);
-    }
-
-    if (!other->IsRoot()) {
-      return Merge(other->FindRoot());
-    }
-
-    if (this->size_ < other->size_) {
-      return other->Merge(this);
-    }
-
-    if (this == other) {
-      return this->label_;
-    }
-
-    this->size_ += other->size_;
-    other->parent_ = this->parent_;
-
-    return this->label_;
   }
 
 
@@ -142,5 +141,25 @@ class DisjointSubset {
   mutable DisjointSubset* parent_;
   Label label_;
 };
+
+template<typename Label>
+inline int Merge(DisjointSubset<Label>* lhs, DisjointSubset<Label>* rhs) {
+  if (!lhs->IsRoot() || !rhs->IsRoot()) {
+  return Merge(lhs->FindRoot(), rhs->FindRoot());
+  }
+
+  if (*lhs == *rhs) {
+  return 0;
+  }
+
+  if (lhs->size_ < rhs->size_) {
+  return -Merge(rhs, lhs);
+  }
+
+  lhs->size_ += rhs->size_;
+  rhs->parent_ = lhs;
+  return 1;
+}
+
 
 #endif //_CRAG_DISJOINTSUBSET_H_

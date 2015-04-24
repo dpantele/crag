@@ -28,7 +28,7 @@ crag_library(SLPv2
 )
 
 target_link_libraries(SLPv2
-  PUBLIC boost_pool
+  PUBLIC 3rdPartyBoostNoThreads
   PUBLIC crag_general
   PUBLIC gmpxx
   PRIVATE gmp

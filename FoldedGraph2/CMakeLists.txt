@@ -8,6 +8,10 @@ crag_library(FoldedGraph2
   folded_graph
 )
 
+if (UNIX)
+  target_compile_options(FoldedGraph2 PUBLIC "-std=c++14")
+endif()
+
 crag_test(folded_graph 
   AccHarvest
   FoldedGraph2

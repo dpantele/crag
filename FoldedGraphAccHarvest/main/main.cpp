@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <fstream>
 #include <list>
+#include <map>
 #include <string>
 
 using namespace crag;
@@ -178,7 +179,7 @@ int main(int argc, const char *argv[]) {
   auto initial = Swapped(GetCanonicalPair(initial_strings.first.c_str(), initial_strings.second.c_str()));
   auto required = Swapped(GetCanonicalPair(required_strings.first.c_str(), required_strings.second.c_str()));
 
-  std::set<std::pair<Word, Word>> unprocessed_pairs = {initial};
+  std::deque<std::pair<Word, Word>> unprocessed_pairs = {initial};
   std::set<std::pair<Word, Word>> all_pairs = {initial};
 
   if (unproc_words.is_open()) {
@@ -208,8 +209,8 @@ int main(int argc, const char *argv[]) {
     }
 
     Word u, v;
-    auto next_pair = *unprocessed_pairs.begin();
-    unprocessed_pairs.erase(unprocessed_pairs.begin());
+    auto next_pair = unprocessed_pairs.front();
+    unprocessed_pairs.pop_front();
     std::tie(v, u) = std::move(next_pair);
     *out << std::setw(2) << u.size() << ", ";
     *out << std::setw(2) << v.size() << ", ";
@@ -224,7 +225,7 @@ int main(int argc, const char *argv[]) {
 
     auto exists = all_pairs.insert(Swapped(GetCanonicalPair(v, u)));
     if (exists.second) {
-      unprocessed_pairs.emplace(*exists.first);
+      unprocessed_pairs.emplace_front(*exists.first);
 
       if (unproc_words.is_open()) {
         unproc_words << counter << ", ";
@@ -286,7 +287,7 @@ int main(int argc, const char *argv[]) {
         if (u_p->size() > 0) {
           available_sizes.set(u_p->size() - 1);
         }
-        unprocessed_pairs.emplace(*exists.first);
+        unprocessed_pairs.emplace_back(*exists.first);
         if (unproc_words.is_open()) {
           unproc_words << counter << ", ";
           PrintWord(v, &unproc_words);

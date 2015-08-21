@@ -431,6 +431,26 @@ int main(int argc, const char *argv[]) {
   std::ofstream proc_words;
   std::ofstream estats_out;
 
+  std::ifstream words_in("h15_no_auto_ak3_unproc_words.txt");
+
+  std::pair<std::string, std::string> next_pair;
+
+  words_in.ignore(64, '\n');
+
+  std::set<std::pair<Word, Word>> though_for_words;
+
+  while (words_in) {
+    std::string appeared_in;
+    words_in >> appeared_in;
+    words_in >> next_pair.first;
+    next_pair.first.pop_back();
+    words_in >> next_pair.second;
+    if (words_in) {
+      though_for_words.emplace(Word(next_pair.first), Word(next_pair.second));
+    }
+  }
+
+
   for (int argi = 1; argi < argc; ++argi) {
     auto arg = Split(argv[argi]);
     if (arg.empty()) {
@@ -541,9 +561,19 @@ int main(int argc, const char *argv[]) {
     return future_results.back().task_id();
   };
 
-  auto AddPair = [&NewTask, &all_pairs, &unproc_words, &counter](const std::pair<Word, Word>& pair, int added_by) -> int {
+  auto AddPair = [&NewTask, &all_pairs, &unproc_words, &counter, &though_for_words](const std::pair<Word, Word>& pair, int added_by) -> int {
     auto exists = all_pairs.insert(pair);
     if (exists.second) {
+      if (though_for_words.count(pair)) {
+        std::cout << "FOUND!!!!" << std::endl;
+        PrintWord(pair.first, &std::cout);
+        std::cout << std::endl;
+        PrintWord(pair.second, &std::cout);
+        std::cout << std::endl;
+
+        exit(0);
+      }
+
       return NewTask(pair, added_by);
     }
     return false;

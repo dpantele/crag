@@ -115,7 +115,7 @@ class RandomWord {
 
 template<typename RandomEngine>
 Word GetRandomWordX1(RandomEngine& engine) {
-  RandomWord generator(6, 9);
+  RandomWord generator(7, 10);
 
   auto ComputeXPower = [](Word w) {
     int count = 0;
@@ -412,9 +412,9 @@ int main(int argc, const char *argv[]) {
       unproc_words.flush();
     }
     if (all_pairs.begin()->first.size() <= 4) {
-      std::cout << 1 << std::endl;
+      std::cout << 1;
     } else {
-      std::cout << 0 << std::endl;
+      std::cout << 0;
     }
 
     if (required.empty()) {

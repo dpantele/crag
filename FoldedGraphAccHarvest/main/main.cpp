@@ -266,7 +266,7 @@ int main(int argc, const char *argv[]) {
     Stopwatch normalize_time_total;
     Stopwatch reweight_time_total;
 
-    while (!unprocessed_pairs.empty() && !required.empty()) {
+    while (!unprocessed_pairs.empty() && !required.empty() && all_pairs.begin()->first.size() > 4) {
       ++counter;
       *out << std::left << std::setw(7) << counter << ", ";
       *out << std::right << std::setw(7) << unprocessed_pairs.size() << ", ";
@@ -411,6 +411,12 @@ int main(int argc, const char *argv[]) {
       proc_words.flush();
       unproc_words.flush();
     }
+    if (all_pairs.begin()->first.size() <= 4) {
+      std::cout << 1 << std::endl;
+    } else {
+      std::cout << 0 << std::endl;
+    }
+
     if (required.empty()) {
       std::cout << 1 << std::endl;
     } else {

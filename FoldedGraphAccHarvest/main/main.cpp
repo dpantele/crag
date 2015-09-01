@@ -466,6 +466,17 @@ public:
   }
 };
 
+std::string TrimSpaces(const std::string& a) {
+  auto begin = a.find_first_not_of(' ');
+  auto end = a.find_last_not_of(' ');
+
+  if (begin == std::string::npos) {
+    return {};
+  }
+
+  return a.substr(begin, end - begin);
+}
+
 int main(int argc, const char *argv[]) {
   Parameters p;
   std::ostream* out = &std::cout;
@@ -475,6 +486,8 @@ int main(int argc, const char *argv[]) {
   std::ofstream proc_words;
   std::ofstream estats_out;
   std::ofstream args_out;
+
+  std::string restore_from;
 
   for (int argi = 1; argi < argc; ++argi) {
     auto arg = Split(argv[argi]);
@@ -509,6 +522,11 @@ int main(int argc, const char *argv[]) {
       p.initial_strings.first = arg[1];
       p.initial_strings.second = arg[2];
     } else if (arg.front() == "out") {
+      if (arg[1] == restore_from) {
+        std::cerr << "Should not override files from which the data is restored" << std::endl;
+        exit(1);
+      }
+
       stats_out.open(arg[1] + ".txt");
       out = &stats_out;
 
@@ -518,6 +536,8 @@ int main(int argc, const char *argv[]) {
       unproc_words << "u, v\n";
       estats_out.open(arg[1] + "_ext.txt");
       args_out.open(arg[1] + "_args.txt");
+    } else if (arg.front() == "restore") {
+      restore_from = arg[1];
     }
   }
 
@@ -571,8 +591,6 @@ int main(int argc, const char *argv[]) {
   std::set<std::pair<Word, Word>> unprocessed_pairs = {};
   std::set<std::pair<Word, Word>> all_pairs = {};
 
-  int counter = 0;
-
   shared_queue<PairToProcess*> tasks;
   Stopwatches total_time;
 
@@ -594,13 +612,49 @@ int main(int argc, const char *argv[]) {
     return future_results.back().task_id();
   };
 
-  auto AddPair = [&NewTask, &all_pairs, &unproc_words, &counter](const std::pair<Word, Word>& pair, int added_by) -> int {
+  auto AddPair = [&NewTask, &all_pairs, &unproc_words](const std::pair<Word, Word>& pair, int added_by) -> int {
     auto exists = all_pairs.insert(pair);
     if (exists.second) {
       return NewTask(pair, added_by);
     }
     return false;
   };
+
+  if (!restore_from.empty()) {
+    auto processed_words_in = std::ifstream(restore_from + "_proc_words.txt");
+    std::string line;
+    std::getline(processed_words_in, line);
+    std::set<std::pair<Word, Word>> processed_words;
+    while (processed_words_in) {
+      proc_words << line << "\n";
+      auto parts = Split(line, ',');
+
+      processed_words.insert(std::make_pair(Word(TrimSpaces(parts[1])), Word(TrimSpaces(parts[2]))));
+      std::getline(processed_words_in, line);
+    }
+
+    auto all_words_in = std::ifstream(restore_from + "_unproc_words.txt");
+    std::getline(all_words_in, line);
+    while (all_words_in) {
+      unproc_words << line << "\n";
+      auto parts = Split(line, ',');
+
+      auto u = Word(TrimSpaces(parts[1]));
+      auto v = Word(TrimSpaces(parts[2]));
+
+      if (processed_words.count(std::make_pair(u, v))) {
+        //just increase task_id
+        PairToProcess(u, v, p, &total_time);
+      } else {
+        //actually put the task in queue
+        future_results.emplace_back(u, v, p, &total_time);
+        tasks.push(&future_results.back());
+      }
+
+      std::getline(all_words_in, line);
+    }
+
+  }
 
   auto initial_task_id = AddPair(initial, 0);
   AddPair(Swapped(initial), initial_task_id);

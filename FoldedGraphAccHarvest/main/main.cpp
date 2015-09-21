@@ -411,6 +411,11 @@ int main(int argc, const char *argv[]) {
       proc_words.flush();
       unproc_words.flush();
     }
+    if (!required.empty()) {
+      std::cout << ",\t";
+    } else {
+      std::cout << "\t";
+    }
     if (all_pairs.begin()->first.size() <= 4) {
       std::cout << 1;
     } else {

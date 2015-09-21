@@ -10,6 +10,7 @@
 #include <list>
 #include <map>
 #include <string>
+#include <sstream>
 
 using namespace crag;
 
@@ -137,6 +138,11 @@ Word GetRandomWordX1(RandomEngine& engine) {
   return result;
 }
 
+std::string ToString(const Word& w) {
+  std::ostringstream out;
+  out << w;
+  return out.str();
+}
 
 int main(int argc, const char *argv[]) {
   size_t max_harvest_length = Word::kMaxLength;
@@ -154,6 +160,7 @@ int main(int argc, const char *argv[]) {
   std::ofstream unproc_words;
   std::ofstream proc_words;
   std::ofstream estats_out;
+  std::string prefix;
 
   for (int argi = 1; argi < argc; ++argi) {
     auto arg = Split(argv[argi]);
@@ -176,6 +183,7 @@ int main(int argc, const char *argv[]) {
       initial_strings.first = arg[1];
       initial_strings.second = arg[2];
     } else if (arg.front() == "out") {
+      prefix = arg[1];
       stats_out.open(arg[1] + ".txt");
       out = &stats_out;
 
@@ -236,9 +244,11 @@ int main(int argc, const char *argv[]) {
     ++iteration_count;
     std::cout << std::left << std::setw(7) << iteration_count << ", ";
     auto w = GetRandomWordX1(engine);
-    std::cout << std::setw(15) << w << ", " << std::flush;
 
     auto initial = GetCanonicalPair(Word(initial_strings.first.c_str()), w);
+    w = initial.second;
+    std::cout << std::setw(15) << ToString(w) << ", " << std::flush;
+
     //auto initial = GetCanonicalPair(initial_strings.first.c_str(), initial_strings.second.c_str());
 
     std::set<std::pair<CWord, CWord>> required;
@@ -418,14 +428,26 @@ int main(int argc, const char *argv[]) {
     }
     if (all_pairs.begin()->first.size() <= 4) {
       std::cout << 1;
+      if (!prefix.empty()) {
+        std::ofstream words(prefix + "_trivial.txt", std::ios::app | std::ios::out);
+        words << w << std::endl;
+      }
     } else {
       std::cout << 0;
     }
 
     if (required.empty()) {
       std::cout << 1 << std::endl;
+      if (!prefix.empty() && all_pairs.begin()->first.size() > 4) {
+        std::ofstream words(prefix + "_true.txt", std::ios::app | std::ios::out);
+        words << w << std::endl;
+      }
     } else {
       std::cout << 0 << std::endl;
+      if (!prefix.empty() && all_pairs.begin()->first.size() > 4) {
+        std::ofstream words(prefix + "_false.txt", std::ios::app | std::ios::out);
+        words << w << std::endl;
+      }
     }
   }
 }

@@ -226,9 +226,7 @@ int main(int argc, const char *argv[]) {
   }
 
   Automorhpism autos[] = {
-    Automorhpism::y_map(CWord("Y")),
-    Automorhpism::y_map(CWord("yx")),
-    Automorhpism(CWord("y"), CWord("x"))
+    Automorhpism::x_map(CWord("xy"))
   };
 
   auto iteration_count = 0;
@@ -361,16 +359,16 @@ int main(int argc, const char *argv[]) {
           if (u_p->size() > 0) {
             available_sizes.set(u_p->size() - 1);
           }
-          if (current_distance < 10) {
-            unprocessed_pairs.emplace_back(exists.first->first, exists.first->second, current_distance + 1);
-            if (unproc_words.is_open()) {
-              unproc_words << counter << ", ";
-              PrintWord(v, &unproc_words);
-              unproc_words << ", ";
-              PrintWord(*u_p, &unproc_words);
-              unproc_words << "\n";
-            }
-          }
+//          if (current_distance < 10) {
+//            unprocessed_pairs.emplace_back(exists.first->first, exists.first->second, current_distance + 1);
+//            if (unproc_words.is_open()) {
+//              unproc_words << counter << ", ";
+//              PrintWord(v, &unproc_words);
+//              unproc_words << ", ";
+//              PrintWord(*u_p, &unproc_words);
+//              unproc_words << "\n";
+//            }
+//          }
 
           if (required.erase(*exists.first)) {
             std::cout << counter << ", " << std::flush;

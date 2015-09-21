@@ -226,7 +226,7 @@ int main(int argc, const char *argv[]) {
   }
 
   Automorhpism autos[] = {
-    Automorhpism::x_map(CWord("xy"))
+    Automorhpism(CWord("xy"), CWord("y"))
   };
 
   auto iteration_count = 0;
@@ -296,7 +296,7 @@ int main(int argc, const char *argv[]) {
       if (exists.second) {
         unprocessed_pairs.emplace_front(exists.first->first, exists.first->second, current_distance);
         if (required.erase(*exists.first)) {
-          std::cout << counter << ", " << std::flush;
+          std::cout << counter << ':' << current_distance << ", " << std::flush;
         }
 
         if (unproc_words.is_open()) {
@@ -359,19 +359,19 @@ int main(int argc, const char *argv[]) {
           if (u_p->size() > 0) {
             available_sizes.set(u_p->size() - 1);
           }
-//          if (current_distance < 10) {
-//            unprocessed_pairs.emplace_back(exists.first->first, exists.first->second, current_distance + 1);
-//            if (unproc_words.is_open()) {
-//              unproc_words << counter << ", ";
-//              PrintWord(v, &unproc_words);
-//              unproc_words << ", ";
-//              PrintWord(*u_p, &unproc_words);
-//              unproc_words << "\n";
-//            }
-//          }
+          if (current_distance < 2) {
+            unprocessed_pairs.emplace_back(exists.first->first, exists.first->second, current_distance + 1);
+            if (unproc_words.is_open()) {
+              unproc_words << counter << ", ";
+              PrintWord(v, &unproc_words);
+              unproc_words << ", ";
+              PrintWord(*u_p, &unproc_words);
+              unproc_words << "\n";
+            }
+          }
 
           if (required.erase(*exists.first)) {
-            std::cout << counter << ", " << std::flush;
+            std::cout << counter << ':' << current_distance << ", " << std::flush;
           }
         }
       }

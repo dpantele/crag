@@ -234,9 +234,9 @@ int main(int argc, const char *argv[]) {
   auto iteration_count = 0;
   while (true) {
     ++iteration_count;
-    std::cout << iteration_count << ", \t";
+    std::cout << std::left << std::setw(7) << iteration_count << ", ";
     auto w = GetRandomWordX1(engine);
-    std::cout << w << ", \t" << std::flush;
+    std::cout << std::setw(15) << w << ", " << std::flush;
 
     auto initial = GetCanonicalPair(Word(initial_strings.first.c_str()), w);
     //auto initial = GetCanonicalPair(initial_strings.first.c_str(), initial_strings.second.c_str());
@@ -298,7 +298,8 @@ int main(int argc, const char *argv[]) {
       if (exists.second) {
         unprocessed_pairs.emplace_front(exists.first->first, exists.first->second, current_distance);
         if (required.erase(*exists.first)) {
-          std::cout << counter << ':' << current_distance << ", " << std::flush;
+          std::string to_print = std::to_string(counter) + ':' + std::to_string(current_distance);
+          std::cout << std::setw(10) << to_print << ", " << std::flush;
         }
 
         if (unproc_words.is_open()) {
@@ -373,7 +374,8 @@ int main(int argc, const char *argv[]) {
           }
 
           if (required.erase(*exists.first)) {
-            std::cout << counter << ':' << current_distance << ", " << std::flush;
+            std::string to_print = std::to_string(counter) + ':' + std::to_string(current_distance);
+            std::cout << std::setw(10) << to_print << ", " << std::flush;
           }
         }
       }
@@ -412,9 +414,7 @@ int main(int argc, const char *argv[]) {
       unproc_words.flush();
     }
     if (!required.empty()) {
-      std::cout << ",\t";
-    } else {
-      std::cout << "\t";
+      std::cout << std::setw(10) << " " << ", " << std::flush;
     }
     if (all_pairs.begin()->first.size() <= 4) {
       std::cout << 1;

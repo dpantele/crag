@@ -131,7 +131,7 @@ Word GetRandomWordX1(RandomEngine& engine) {
   };
 
   Word result;
-  while (ComputeXPower(result) != 1) {
+  while (ComputeXPower(result) != 1 || result.GetFront() == (result.GetBack() ^ 1)) {
     result = generator(engine);
   }
   return result;

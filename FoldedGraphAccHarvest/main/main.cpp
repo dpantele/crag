@@ -144,7 +144,9 @@ int main(int argc, const char *argv[]) {
 //  auto initial_strings = std::pair<std::string, std::string>("xyxYXY", "xxxxYYYYY");
   auto initial_strings = std::pair<std::string, std::string>("XyyxYYY", "XyyxYYY");
   auto required_strings = std::pair<std::string, std::string>("x", "y");
-  std::mt19937_64 engine(17);
+  std::random_device rd;
+
+  std::mt19937_64 engine(rd());
 
   std::ostream* out = &std::cout;
 

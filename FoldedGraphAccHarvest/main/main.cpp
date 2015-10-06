@@ -214,10 +214,10 @@ struct Parameters {
 
   Parameters()
     : complete_count(Word::kMaxLength + 1, 2)
-    , initial_strings("xxxyXyy", "xyyxYYXy")
-    , required_strings("xxyXXYY", "xyyxYYXy")
-    //, initial_strings("xyxYXY", "xxxYYYY")
-    //, required_strings("x", "y")
+    //, initial_strings("xxxyXyy", "xyyxYYXy")
+    //, required_strings("xxyXXYY", "xyyxYYXy")
+    , initial_strings("xyxYXY", "xxxYYYY")
+    , required_strings("x", "y")
   { }
 };
 
@@ -621,7 +621,7 @@ int main(int argc, const char *argv[]) {
   };
 
   if (!restore_from.empty()) {
-    auto processed_words_in = std::ifstream(restore_from + "_proc_words.txt");
+    std::ifstream processed_words_in(restore_from + "_proc_words.txt");
     std::string line;
     std::getline(processed_words_in, line);
     std::set<std::pair<Word, Word>> processed_words;
@@ -633,7 +633,7 @@ int main(int argc, const char *argv[]) {
       std::getline(processed_words_in, line);
     }
 
-    auto all_words_in = std::ifstream(restore_from + "_unproc_words.txt");
+    std::ifstream all_words_in(restore_from + "_unproc_words.txt");
     std::getline(all_words_in, line);
     while (all_words_in) {
       unproc_words << line << "\n";

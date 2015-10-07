@@ -154,15 +154,15 @@ public:
 
   void GrowHair();
 
-  //! Find all word of length up to k which can can be read from v1 to v2
-  std::vector<Word> Harvest(Word::size_type k, Vertex v1, Vertex v2, Weight w = 0) const;
+  typedef std::deque<std::tuple<Vertex, Word, bool, Weight>> HarvestPath;
 
-  typedef std::deque<std::tuple<Vertex, Word, Weight>> HarvestPath;
+  //! Find all cycles starting at v of length up to k which can be read starting from the first_edge
+  void Harvest(Word::size_type k, Weight w, Vertex origin_v, Vertex terminus_v, Label first_edge, std::vector<Word>* result) const;
 
-  //! Find all word of length up to k which can can be read from v1 to v2
-  void Harvest(Word::size_type k, Vertex v2, Weight w, HarvestPath* current_path, std::vector<Word>* result) const;
+  //! Find all cycles starting at v of length up to k
+  std::vector<Word> Harvest(Word::size_type k, Vertex origin, Vertex terminus, Weight w) const;
 
-  //! Harvest all cycles of defined weight of length less thatn @ref k
+  //! Harvest all cycles of defined weight of length less than @ref k
   std::vector<Word> Harvest(Word::size_type k, Weight w = 0);
 
   Word RestoreConjugator(const Word& harvested_word) const {

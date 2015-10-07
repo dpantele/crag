@@ -675,59 +675,232 @@ bool IsSortedAndUnique(Iter current, Iter end) {
   return true;
 }
 
-std::vector<Word> FoldedGraph2::Harvest(Word::size_type k, Vertex v1, Vertex v2, Weight weight) const {
-  std::vector<Word> result;
-  FoldedGraph2::HarvestPath current_path = {std::make_tuple(v1, Word{ }, 0)};
-  Harvest(k, v2, weight, &current_path, &result);
-  return result;
-}
-
 #define UNUSED(x) ((void)x)
 
+//void FoldedGraph2::Harvest(
+//    Word::size_type k,
+//    Vertex v2,
+//    Weight weight,
+//    FoldedGraph2::HarvestPath* current_path,
+//    std::vector<Word>* result
+//  ) const {
+//
+//  auto initial_result_length = result->size();
+//  v2 = GetLastCombinedWith(v2);
+//
+//  std::vector<std::vector<CurrentPath>> vertex_paths(this->edges_.size());
+//
+//  vertex_paths[v2].emplace_back();
+//
+//  while (!current_path->empty()) {
+//    Vertex v;
+//    Word w;
+//    bool is_primary;
+//    Weight c;
+//    std::tie(v, w, is_primary, c) = current_path->front();
+//    current_path->pop_front();
+//
+//    if (v == v2 && (WeightMod(c - weight) == 0 || WeightMod(c + weight) == 0)) {
+//      result->push_back(w);
+//    }
+//
+//    auto& edges = vertex(v);
+//
+//    for(auto label = 0u; label < 2 * kAlphabetSize; ++label) {
+//      if (!w.Empty() && Inverse(label) == w.GetBack()) {
+//        continue;
+//      }
+//      Vertex n = GetLastCombinedWith(edges.endpoint(label));
+//      if (n == kNullVertex) {
+//        continue;
+//      }
+//      if (v2_distances[n] + w.size() < k && (n == v2 || v2_distances[n] != 0)) {
+//        Word next_word = w;
+//        next_word.PushBack(label);
+//        current_path->emplace_back(n, next_word, c + edges.weight(label));
+//      }
+//    }
+//  }
+//
+//  assert(IsSortedAndUnique(result->begin() + initial_result_length, result->end()));
+//  UNUSED(initial_result_length);
+//}
+
 void FoldedGraph2::Harvest(
-    Word::size_type k, 
-    Vertex v2, 
-    Weight weight, 
-    FoldedGraph2::HarvestPath* current_path, 
-    std::vector<Word>* result
-  ) const {
-
-  auto initial_result_length = result->size();
-  v2 = GetLastCombinedWith(v2);
-  auto v2_distances = this->ComputeDistances(v2, k);
-  
-  while (!current_path->empty()) {
+    Word::size_type k
+    , Weight w
+    , Vertex origin_v
+    , Vertex terminus_v
+    , Label first_edge
+    , std::vector<Word> *result
+) const {
+  struct PathQueueElement {
     Vertex v;
-    Word w;
-    Weight c;
-    std::tie(v, w, c) = current_path->front();
-    current_path->pop_front();
+    Word word;
+    bool is_primary; //!< If this path starts from origin
+    Weight weight;
+  };
+  std::deque<PathQueueElement> paths_queue;
 
-    if (v == v2 && (WeightMod(c - weight) == 0 || WeightMod(c + weight) == 0)) {
-      result->push_back(w);
+  struct HarvestPath {
+    Word word;
+    Weight weight;
+  };
+
+  using VertexPaths = std::vector<HarvestPath>;
+  std::vector<VertexPaths> cur_vertex_paths(edges_.size());
+
+  auto PushPath = [&](PathQueueElement path) {
+    if (!path.is_primary) {
+      cur_vertex_paths[path.v].push_back(HarvestPath{path.word, path.weight});
     }
+    paths_queue.push_back(std::move(path));
+  };
 
-    auto& edges = vertex(v);
+  assert(edges_[origin_v].endpoint(first_edge) != kNullVertex);
 
-    for(auto label = 0u; label < 2 * kAlphabetSize; ++label) {
-      if (!w.Empty() && Inverse(label) == w.GetBack()) {
+  //add a single edge as a primary path
+  PushPath(
+      {
+          GetLastCombinedWith(edges_[origin_v].endpoint(first_edge)),
+          Word({first_edge}),
+          true,
+          edges_[terminus_v].weight(first_edge)
+      }
+  );
+
+  //add trivial path to the final vertex
+  cur_vertex_paths[terminus_v].push_back(HarvestPath{Word{}, 0});
+
+  //also push all paths from the terminal vertex as non-primary
+  if (k > 1) {
+    for (auto terminus_label = 0u; terminus_label < 2 * kAlphabetSize; ++terminus_label) {
+      if (edges_[terminus_v].edges_[terminus_label] == kNullVertex) {
         continue;
       }
-      Vertex n = GetLastCombinedWith(edges.endpoint(label));
-      if (n == kNullVertex) {
+      if (terminus_label == first_edge && origin_v == terminus_v) {
+        //for cycles we don't need to add the primary path, we don't want cyclic cancellations
         continue;
       }
-      if (v2_distances[n] + w.size() < k && (n == v2 || v2_distances[n] != 0)) {
-        Word next_word = w;
-        next_word.PushBack(label);
-        current_path->emplace_back(n, next_word, c + edges.weight(label));
-      }
+      PushPath(
+          {
+              GetLastCombinedWith(edges_[terminus_v].endpoint(terminus_label)),
+              Word({terminus_label}),
+              false,
+              edges_[terminus_v].weight(terminus_label)
+          }
+      );
     }
   }
 
-  assert(IsSortedAndUnique(result->begin() + initial_result_length, result->end()));
-  UNUSED(initial_result_length);
+  if (paths_queue.size() != 1) {
+    //otherwise there are no edges either from origin or terminus
+
+    while (!paths_queue.empty()) {
+      auto path = paths_queue.front();
+      paths_queue.pop_front();
+//      std::cerr << "v: " << path.v
+//          << "\npath: " << path.word
+//          << "\nis_primary: " << path.is_primary
+//          << "\nweight: " << path.weight
+//          << std::endl;
+
+      if (path.is_primary) {
+        //try to find new results
+        for (const HarvestPath& vertex_path : cur_vertex_paths[path.v]) {
+          //no cancellations
+//          std::cerr << "t_path: " << vertex_path.word
+//              << "\nt_weight: " << vertex_path.weight
+//              << std::endl;
+
+          if (!vertex_path.word.Empty() && vertex_path.word.GetBack() == path.word.GetBack()) {
+            continue;
+          }
+          auto total_path_weight = path.weight - vertex_path.weight;
+          if (WeightMod(total_path_weight - w) == 0 || WeightMod(total_path_weight + w) == 0) {
+            //ok, weight is compatible
+            //add new result
+            assert(path.word.size() + vertex_path.word.size() <= k);
+            Word new_result(vertex_path.word);
+            new_result.Invert();
+            new_result.PushFront(path.word);
+
+            if (new_result.GetBack() != Inverse(new_result.GetFront())) {
+              result->push_back(new_result);
+//            std::cerr << "New result: " << new_result << std::endl;
+            }
+          }
+        }
+      }
+
+      //add new paths
+      //for a non-primary path we extend them if they are less than k/2
+      //for primary path - one step more for odd k
+      if (path.word.size() < floor(k/2.) || (path.is_primary && path.word.size() < ceil(k/2.))) {
+        for (auto next_label = 0u; next_label < 2 * kAlphabetSize; ++next_label) {
+          if (edges_[path.v].endpoint(next_label) == kNullVertex) {
+            continue;
+          }
+
+          if (next_label == Inverse(path.word.GetBack())) {
+            continue;
+          }
+
+          auto next_word = path.word;
+          next_word.PushBack(next_label);
+          assert(next_word.size() > path.word.size());
+          PushPath(
+              {
+                  GetLastCombinedWith(edges_[path.v].endpoint(next_label)),
+                  next_word,
+                  path.is_primary,
+                  path.weight + edges_[path.v].weight(next_label)
+              }
+          );
+        }
+      }
+    }
+  } else {
+    //except the case when the only edge is from origin to terminus
+    if (edges_[origin_v].edges_[first_edge] == terminus_v
+        && (   WeightMod(edges_[origin_v].weights_[first_edge] - w) == 0
+            || WeightMod(edges_[origin_v].weights_[first_edge] + w) == 0)
+        ) {
+      //then just add this edge for case origin != terminus and all cycles otherwise
+      auto next_power = Word();
+      unsigned int i = (origin_v == terminus_v)
+                       ? k
+                       : 1;
+      while(i-- > 0u) {
+        next_power.PushBack(first_edge);
+        result->emplace_back(next_power);
+      }
+    }
+  }
 }
+
+std::vector<Word> FoldedGraph2::Harvest(Word::size_type k, Vertex origin, Vertex terminus, Weight w) const {
+  std::vector<Word> result;
+  if (origin == terminus && WeightMod(w) == 0) {
+    result.push_back(Word{});
+  }
+
+  for(auto label = 0u; label < 2 * kAlphabetSize; ++label) {
+    if (edges_[origin].edges_[label] == kNullVertex) {
+      continue;
+    }
+
+    Harvest(k, w, origin, terminus, label, &result);
+  }
+
+  std::sort(result.begin(), result.end());
+  auto unique_end = std::unique(result.begin(), result.end());
+  result.erase(unique_end, result.end());
+
+  return result;
+}
+
+
 
 std::vector<Word> FoldedGraph2::Harvest(Word::size_type k, Weight w) {
   std::vector<Word> result;
@@ -735,6 +908,9 @@ std::vector<Word> FoldedGraph2::Harvest(Word::size_type k, Weight w) {
   if (WeightMod(w) == 0) {
     result.push_back(Word{ });
   }
+
+  //to perform Harvest, we need a queue of current paths
+  //and a list of paths to every vertex
 
   for(auto v = root(); v < edges_.size(); ++v) {
     if(edges_[v].combined_with_) {
@@ -749,21 +925,15 @@ std::vector<Word> FoldedGraph2::Harvest(Word::size_type k, Weight w) {
         continue;
       }
 
-      FoldedGraph2::HarvestPath path = {std::make_tuple(
-        edges_[v].edges_[label], 
-        Word({label}), 
-        edges_[v].weights_[label]
-      )};
+      Harvest(k, w, v, v, label, &result);
 
-      auto current_result_size = result.size();
-      Harvest(k, v, w, &path, &result);
-      std::inplace_merge(result.begin(), result.begin() + current_result_size, result.end());
       edges_[edges_[v].edges_[label]].edges_[Inverse(label)] = kNullVertex;
       edges_[edges_[v].edges_[label]].weights_[Inverse(label)] = 0;
       edges_[v].edges_[label] = kNullVertex;
       edges_[v].weights_[label] = 0;
     }
   }
+  std::sort(result.begin(), result.end());
   auto unique_end = std::unique(result.begin(), result.end());
   result.erase(unique_end, result.end());
 
@@ -789,17 +959,14 @@ Vertex FoldedGraph2::RestoreHarvestVertex(const Word& harvested_word) const {
         continue;
       }
 
-      FoldedGraph2::HarvestPath path = {std::make_tuple(
-        edges_[v].edges_[label], 
-        Word({label}), 
-        edges_[v].weights_[label]
-      )};
-
-      Harvest(harvested_word.size(), v, w, &path, &result);
-      if (std::binary_search(result.begin(), result.end(), harvested_word)) {
-        assert(std::get<2>(ReadWord(harvested_word, v)) == w);
-        return v;
+      Harvest(harvested_word.size(), w, v, v, label, &result);
+      for (auto&& elem : result) {
+        if (elem == harvested_word) {
+          assert(std::get<2>(ReadWord(harvested_word, v)) == w);
+          return v;
+        }
       }
+      result.clear();
     }
   }
 
@@ -1003,6 +1170,5 @@ uint64_t FoldedGraph2::CountNontrivialEdges() const {
 
   return result;
 }
-
 
 } //namespace crag

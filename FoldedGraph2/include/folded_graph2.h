@@ -146,16 +146,18 @@ public:
   //! Tries to reduce the number edges with a non-trivial weight
   void Reweight();
 
-  //! Find all word of length up to k which can can be read from v1 to v2
-  std::vector<Word> Harvest(size_t k, Vertex v1, Vertex v2, Weight w = 0) const;
+  typedef std::deque<std::tuple<Vertex, Word, bool, Weight>> HarvestPath;
+  //! Find all cycles starting at v of length up to k which can be read starting from the first_edge
+  void Harvest(Word::size_type k, Weight w, Vertex origin_v, Vertex terminus_v, Label first_edge, std::vector<Word>* result) const;
 
-  typedef std::deque<std::tuple<Vertex, Word, Weight>> HarvestPath;
+  void Harvest(Word::size_type k, Weight w, Vertex origin_v, Vertex terminus_v, std::vector<Word>* result) const;
 
-  //! Find all word of length up to k which can can be read from v1 to v2
-  void Harvest(size_t k, Vertex v2, Weight w, HarvestPath* current_path, std::vector<Word>* result) const;
 
-  //! Harvest all cycles of defined weight of length less thatn @ref k
-  std::vector<Word> Harvest(size_t k, Weight w = 0);
+  //! Find all cycles starting at v of length up to k
+  std::vector<Word> Harvest(Word::size_type k, Vertex origin, Vertex terminus, Weight w) const;
+
+  //! Harvest all cycles of defined weight of length less than @ref k
+  std::vector<Word> Harvest(Word::size_type k, Weight w = 0);
 
   Word RestoreConjugator(const Word& harvested_word) const {
     return GetPathFromRoot(RestoreHarvestVertex(harvested_word));

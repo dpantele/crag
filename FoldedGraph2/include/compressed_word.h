@@ -131,6 +131,16 @@ public:
     }
   }
 
+  void PushFront(CWord w) {
+    while (!w.Empty()) {
+      PushFront(w.GetBack());
+      w.PopBack();
+    }
+    assert(size_ == kMaxLength || (letters_ >> (kLetterShift * size_)) == 0);
+  }
+
+
+
   void PopBack() {
     assert(!Empty());
     --size_;

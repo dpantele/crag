@@ -159,6 +159,9 @@ public:
   //! Find all cycles starting at v of length up to k which can be read starting from the first_edge
   void Harvest(Word::size_type k, Weight w, Vertex origin_v, Vertex terminus_v, Label first_edge, std::vector<Word>* result) const;
 
+  void Harvest(Word::size_type k, Weight w, Vertex origin_v, Vertex terminus_v, std::vector<Word>* result) const;
+
+
   //! Find all cycles starting at v of length up to k
   std::vector<Word> Harvest(Word::size_type k, Vertex origin, Vertex terminus, Weight w) const;
 

@@ -236,8 +236,11 @@ int main(int argc, const char *argv[]) {
   }
 
   Automorhpism autos[] = {
-    Automorhpism(CWord("xy"), CWord("y"))
+      Automorhpism::y_map(CWord("Y")),
+      Automorhpism::y_map(CWord("yx")),
+      Automorhpism(CWord("y"), CWord("x"))
   };
+
 
   auto iteration_count = 0;
   while (true) {
@@ -276,7 +279,7 @@ int main(int argc, const char *argv[]) {
     Stopwatch normalize_time_total;
     Stopwatch reweight_time_total;
 
-    while (!unprocessed_pairs.empty() && !required.empty() && all_pairs.begin()->first.size() > 4) {
+    while (!unprocessed_pairs.empty() && all_pairs.begin()->first.size() > 4) {
       ++counter;
       *out << std::left << std::setw(7) << counter << ", ";
       *out << std::right << std::setw(7) << unprocessed_pairs.size() << ", ";
@@ -372,7 +375,7 @@ int main(int argc, const char *argv[]) {
           if (u_p->size() > 0) {
             available_sizes.set(u_p->size() - 1);
           }
-          if (current_distance < 2) {
+          if (current_distance < 3) {
             unprocessed_pairs.emplace_back(exists.first->first, exists.first->second, current_distance + 1);
             if (unproc_words.is_open()) {
               unproc_words << counter << ", ";
@@ -423,8 +426,8 @@ int main(int argc, const char *argv[]) {
       proc_words.flush();
       unproc_words.flush();
     }
-    if (!required.empty()) {
-      std::cout << std::setw(10) << " " << ", " << std::flush;
+    for (auto i = required.size(); i > 0; --i) {
+      std::cout << std::setw(10) << " " << ", ";
     }
     if (all_pairs.begin()->first.size() <= 4) {
       std::cout << 1;
@@ -434,20 +437,34 @@ int main(int argc, const char *argv[]) {
       }
     } else {
       std::cout << 0;
-    }
 
-    if (required.empty()) {
-      std::cout << 1 << std::endl;
-      if (!prefix.empty() && all_pairs.begin()->first.size() > 4) {
-        std::ofstream words(prefix + "_true.txt", std::ios::app | std::ios::out);
-        words << w << std::endl;
+      //find min orbit element
+      auto compareByTotal = [](const std::pair<Word, Word>& first, const std::pair<Word, Word>& second) {
+        if(first.first.size() + first.second.size() != second.first.size() + second.second.size()) {
+          return first.first.size() + first.second.size() < second.first.size() + second.second.size();
+        }
+        if (first.first != second.first) {
+          return first.first < second.first;
+        }
+        return first.second < second.second;
+      };
+
+      auto min_orbit_element = std::min_element(all_pairs.begin(), all_pairs.end(), compareByTotal);
+
+      if (required.empty()) {
+        std::cout << 1;
+        if (!prefix.empty()) {
+          std::ofstream words(prefix + "_true.txt", std::ios::app | std::ios::out);
+          words << w << ',' << min_orbit_element->first << ',' << min_orbit_element->second << std::endl;
+        }
+      } else {
+        std::cout << 0;
+        if (!prefix.empty()) {
+          std::ofstream words(prefix + "_false.txt", std::ios::app | std::ios::out);
+          words << w << ',' << min_orbit_element->first << ',' << min_orbit_element->second << std::endl;
+        }
       }
-    } else {
-      std::cout << 0 << std::endl;
-      if (!prefix.empty() && all_pairs.begin()->first.size() > 4) {
-        std::ofstream words(prefix + "_false.txt", std::ios::app | std::ios::out);
-        words << w << std::endl;
-      }
+      std::cout << " " << min_orbit_element->first << " " << min_orbit_element->second << std::endl;
     }
   }
 }

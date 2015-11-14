@@ -430,7 +430,7 @@ int main(int argc, const char *argv[]) {
       std::cout << std::setw(10) << " " << ", ";
     }
     if (all_pairs.begin()->first.size() <= 4) {
-      std::cout << 1;
+      std::cout << 1 << std::endl;
       if (!prefix.empty()) {
         std::ofstream words(prefix + "_trivial.txt", std::ios::app | std::ios::out);
         words << w << std::endl;
@@ -455,13 +455,13 @@ int main(int argc, const char *argv[]) {
         std::cout << 1;
         if (!prefix.empty()) {
           std::ofstream words(prefix + "_true.txt", std::ios::app | std::ios::out);
-          words << w << ',' << min_orbit_element->first << ',' << min_orbit_element->second << std::endl;
+          words << min_orbit_element->first << ',' << min_orbit_element->second << ',' << w << std::endl;
         }
       } else {
         std::cout << 0;
         if (!prefix.empty()) {
           std::ofstream words(prefix + "_false.txt", std::ios::app | std::ios::out);
-          words << w << ',' << min_orbit_element->first << ',' << min_orbit_element->second << std::endl;
+          words << min_orbit_element->first << ',' << min_orbit_element->second << ',' << w << std::endl;
         }
       }
       std::cout << " " << min_orbit_element->first << " " << min_orbit_element->second << std::endl;

@@ -144,6 +144,21 @@ std::string ToString(const Word& w) {
   return out.str();
 }
 
+struct WordPair {
+  Word u;
+  Word v;
+
+  bool operator<(const WordPair& other) const {
+    return u != other.u ? u < other.u : v < other.v;
+  }
+
+  friend std::ostream& operator<<(std::ostream& out, const WordPair& p) {
+    out << p.u << ' ' << p.v;
+    return out;
+  }
+};
+
+
 int main(int argc, const char *argv[]) {
   size_t max_harvest_length = Word::kMaxLength;
   std::vector<uint16_t> complete_count(Word::kMaxLength + 1, 2);
@@ -235,15 +250,33 @@ int main(int argc, const char *argv[]) {
     estats_out << "\n";
   }
 
-  Automorhpism autos[] = {
-      Automorhpism::y_map(CWord("Y")),
-      Automorhpism::y_map(CWord("yx")),
-      Automorhpism(CWord("y"), CWord("x"))
+  auto iteration_count = 0;
+
+  std::map<WordPair, WordPair> pair_orbit; //!< For each pair we specify the 'canonical' one
+  std::ofstream pair_orbits_out;
+  if (!prefix.empty()) {
+    pair_orbits_out.open(prefix + "_orbits.txt");
+  }
+
+  auto setPairOrbit = [&pair_orbit, &pair_orbits_out](const WordPair& pair, const WordPair& canonical) {
+    auto result = pair_orbit.emplace(pair, canonical);
+    if (!result.second) {
+      return;
+    }
+    if (pair_orbits_out.is_open()) {
+      pair_orbits_out
+          << pair.u << ", " << pair.v << ", "
+          << canonical.u << ", " << canonical.v << std::endl;
+    }
   };
 
-
-  auto iteration_count = 0;
   while (true) {
+    std::map<Automorhpism, std::tuple<int, WordPair>> autos_to_check = {
+        {Automorhpism::y_map(CWord("Y")), std::make_tuple(-1, WordPair())},
+        {Automorhpism::y_map(CWord("yx")), std::make_tuple(-1, WordPair())},
+        {Automorhpism(CWord("y"), CWord("x")), std::make_tuple(-1, WordPair())},
+    };
+
     ++iteration_count;
     std::cout << std::left << std::setw(7) << iteration_count << ", ";
     auto w = GetRandomWordX1(engine);
@@ -254,16 +287,26 @@ int main(int argc, const char *argv[]) {
 
     //auto initial = GetCanonicalPair(initial_strings.first.c_str(), initial_strings.second.c_str());
 
-    std::set<std::pair<CWord, CWord>> required;
-
-    for (auto&& mapping : autos) {
-      required.emplace(GetCanonicalPair(mapping.Apply(initial.first), mapping.Apply(initial.second)));
-    }
-
     initial = Swapped(initial);
 
     std::deque<std::tuple<Word, Word, int>> unprocessed_pairs = {std::make_tuple(initial.first, initial.second, 0)};
     std::set<std::pair<Word, Word>> all_pairs = {initial};
+
+    bool orbit_intersected_with_existing = false;
+    WordPair canonical_word_pair;
+
+    auto check_pair_images = [&autos_to_check, &all_pairs](const std::pair<CWord, CWord> pair, int current_distance) {
+      for (auto&& f : autos_to_check) {
+        if (std::get<0>(f.second) != -1) {
+          continue;
+        }
+        auto image = GetCanonicalPair(f.first.Apply(pair.first), f.first.Apply(pair.second));
+        if (all_pairs.count(image)) {
+          std::get<0>(f.second) = current_distance;
+          std::get<1>(f.second) = WordPair{pair.first, pair.second};
+        }
+      }
+    };
 
     if (unproc_words.is_open()) {
       unproc_words << 0 << ", ";
@@ -279,7 +322,7 @@ int main(int argc, const char *argv[]) {
     Stopwatch normalize_time_total;
     Stopwatch reweight_time_total;
 
-    while (!unprocessed_pairs.empty() && all_pairs.begin()->first.size() > 4) {
+    while (!orbit_intersected_with_existing && !unprocessed_pairs.empty() && all_pairs.begin()->first.size() > 4) {
       ++counter;
       *out << std::left << std::setw(7) << counter << ", ";
       *out << std::right << std::setw(7) << unprocessed_pairs.size() << ", ";
@@ -310,17 +353,21 @@ int main(int argc, const char *argv[]) {
       auto exists = all_pairs.insert(Swapped(GetCanonicalPair(v, u)));
       if (exists.second) {
         unprocessed_pairs.emplace_front(exists.first->first, exists.first->second, current_distance);
-        if (required.erase(*exists.first)) {
-          std::string to_print = std::to_string(counter) + ':' + std::to_string(current_distance);
-          std::cout << std::setw(10) << to_print << ", " << std::flush;
-        }
-
         if (unproc_words.is_open()) {
           unproc_words << counter << ", ";
           PrintWord(exists.first->second, &unproc_words);
           unproc_words << ", ";
           PrintWord(exists.first->first, &unproc_words);
           unproc_words << "\n";
+        }
+
+        check_pair_images(*exists.first, current_distance);
+        auto new_pair_orbit = pair_orbit.find(WordPair{exists.first->first, exists.first->second});
+
+        if (new_pair_orbit != pair_orbit.end()) {
+          canonical_word_pair = new_pair_orbit->second;
+          orbit_intersected_with_existing = true;
+          continue;
         }
       }
 
@@ -375,7 +422,7 @@ int main(int argc, const char *argv[]) {
           if (u_p->size() > 0) {
             available_sizes.set(u_p->size() - 1);
           }
-          if (current_distance < 3) {
+          if (current_distance < 5) {
             unprocessed_pairs.emplace_back(exists.first->first, exists.first->second, current_distance + 1);
             if (unproc_words.is_open()) {
               unproc_words << counter << ", ";
@@ -386,9 +433,13 @@ int main(int argc, const char *argv[]) {
             }
           }
 
-          if (required.erase(*exists.first)) {
-            std::string to_print = std::to_string(counter) + ':' + std::to_string(current_distance);
-            std::cout << std::setw(10) << to_print << ", " << std::flush;
+          check_pair_images(*exists.first, current_distance);
+          auto new_pair_orbit = pair_orbit.find(WordPair{exists.first->first, exists.first->second});
+
+          if (new_pair_orbit != pair_orbit.end()) {
+            canonical_word_pair = new_pair_orbit->second;
+            orbit_intersected_with_existing = true;
+            break;
           }
         }
       }
@@ -426,13 +477,26 @@ int main(int argc, const char *argv[]) {
       proc_words.flush();
       unproc_words.flush();
     }
-    for (auto i = required.size(); i > 0; --i) {
-      std::cout << std::setw(10) << " " << ", ";
+
+    for (auto&& f : autos_to_check) {
+      if (std::get<0>(f.second) != -1) {
+        std::cout << std::get<1>(f.second) << ":" << std::get<0>(f.second) << ", ";
+      } else {
+        std::cout << std::setw(10) << " " << ", ";
+      };
     }
+
     if (all_pairs.begin()->first.size() <= 4) {
+      canonical_word_pair = WordPair{Word("x"), Word("y")};
       std::cout << 1 << std::endl;
       if (!prefix.empty()) {
         std::ofstream words(prefix + "_trivial.txt", std::ios::app | std::ios::out);
+        words << w << std::endl;
+      }
+    } else if (orbit_intersected_with_existing) {
+      std::cout << 2 << std::endl;
+      if (!prefix.empty()) {
+        std::ofstream words(prefix + "_intersect.txt", std::ios::app | std::ios::out);
         words << w << std::endl;
       }
     } else {
@@ -451,7 +515,10 @@ int main(int argc, const char *argv[]) {
 
       auto min_orbit_element = std::min_element(all_pairs.begin(), all_pairs.end(), compareByTotal);
 
-      if (required.empty()) {
+      canonical_word_pair = WordPair{min_orbit_element->first, min_orbit_element->second};
+
+      if (std::all_of(autos_to_check.begin(), autos_to_check.end(),
+            [](const decltype(autos_to_check)::value_type& a) {return std::get<0>(a.second) != -1; })) {
         std::cout << 1;
         if (!prefix.empty()) {
           std::ofstream words(prefix + "_true.txt", std::ios::app | std::ios::out);
@@ -466,5 +533,10 @@ int main(int argc, const char *argv[]) {
       }
       std::cout << " " << min_orbit_element->first << " " << min_orbit_element->second << std::endl;
     }
+
+    for (auto&& pair : all_pairs) {
+      setPairOrbit(WordPair{pair.first, pair.second}, canonical_word_pair);
+    }
+    pair_orbits_out.flush();
   }
 }

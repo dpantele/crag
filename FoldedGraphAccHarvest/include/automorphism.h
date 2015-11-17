@@ -35,8 +35,17 @@ class Automorhpism {
     result.CyclicReduce();
     return result;
   }
+
+  bool operator<(const Automorhpism& other) const {
+    for (auto i = 0u; i + 1 < images_.size(); ++i) {
+      if (images_[i] != other.images_[i]) {
+        return images_[i] < other.images_[i];
+      }
+    }
+    return images_.back() < other.images_.back();
+  }
  private:
-  CWord images_[4];
+  std::array<CWord, 4> images_;
 };
 
 }

@@ -279,7 +279,7 @@ int main(int argc, const char* argv[]) {
   };
 
 
-  auto initial = GetCanonicalPair(Word(initial_strings.first.c_str()), Word(initial_strings.first.c_str()));
+  auto initial = GetCanonicalPair(Word(initial_strings.first.c_str()), Word(initial_strings.second.c_str()));
   initial = Swapped(initial);
 
   std::deque<std::tuple<Word, Word, int>> unprocessed_pairs = {std::make_tuple(initial.first, initial.second, 0)};

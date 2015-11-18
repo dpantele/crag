@@ -28,7 +28,8 @@ std::vector<std::string> Split(const std::string& str, char split = ':') {
   return result;
 }
 
-struct Stopwatch {
+struct Stopwatch
+{
   using clock = std::chrono::high_resolution_clock;
   clock::duration duration_{0};
   clock::duration last_duration_{0};
@@ -36,15 +37,16 @@ struct Stopwatch {
 
   typedef std::chrono::microseconds ResultUnits;
 
-  struct Iteration {
+  struct Iteration
+  {
     Stopwatch* stopwatch_;
     clock::duration duration_{0};
     clock::time_point last_click_;
     uint64_t clicks_count_{0};
 
     Iteration(Stopwatch* stopwatch)
-      : stopwatch_(stopwatch)
-    { }
+        : stopwatch_(stopwatch) {
+    }
 
     inline bool IsRunning() const {
       return clicks_count_ % 2 == 1;
@@ -87,23 +89,24 @@ struct Stopwatch {
   }
 };
 
-template<typename U, typename V>
+template <typename U, typename V>
 std::pair<V, U> Swapped(std::pair<U, V> p) {
   return std::pair<V, U>(std::move(p.second), std::move(p.first));
 }
 
-class RandomWord {
+class RandomWord
+{
  public:
   RandomWord(size_t min_size, size_t max_size)
       : random_letter_(0, 2 * Word::kAlphabetSize - 1)
-      , random_length_(min_size, max_size)
-  { }
+        , random_length_(min_size, max_size) {
+  }
 
-  template<class RandomEngine>
+  template <class RandomEngine>
   Word operator()(RandomEngine& engine) {
     Word w;
     size_t length = random_length_(engine);
-    while(w.size() < length) {
+    while (w.size() < length) {
       w.PushBack(random_letter_(engine));
     }
     return w;
@@ -114,7 +117,7 @@ class RandomWord {
   std::uniform_int_distribution<size_t> random_length_;
 };
 
-template<typename RandomEngine>
+template <typename RandomEngine>
 Word GetRandomWordX1(RandomEngine& engine) {
   RandomWord generator(7, 12);
 
@@ -144,7 +147,8 @@ std::string ToString(const Word& w) {
   return out.str();
 }
 
-struct WordPair {
+struct WordPair
+{
   Word u;
   Word v;
 
@@ -159,7 +163,7 @@ struct WordPair {
 };
 
 
-int main(int argc, const char *argv[]) {
+int main(int argc, const char* argv[]) {
   size_t max_harvest_length = Word::kMaxLength;
   std::vector<uint16_t> complete_count(Word::kMaxLength + 1, 2);
 //  auto initial_strings = std::pair<std::string, std::string>("xyxYXY", "xxxxYYYYY");
@@ -192,7 +196,7 @@ int main(int argc, const char *argv[]) {
         complete_count.resize(up_to, count);
       }
       for (size_t i = 0; i < up_to; ++i) {
-        complete_count[i] = count; 
+        complete_count[i] = count;
       }
     } else if (arg.front() == "init") {
       initial_strings.first = arg[1];
@@ -210,15 +214,15 @@ int main(int argc, const char *argv[]) {
     }
   }
 
-  *out << std::left ;
+  *out << std::left;
   *out << std::setw(7) << "iter";
   *out << std::setw(9) << ", unproc";
   *out << std::setw(9) << ", total";
   *out << std::setw(4) << ", u";
   *out << std::setw(4) << ", v";
-  *out <<                 ", min new size";
-  *out <<                 ", folding time";
-  *out <<                 ", harvest time";
+  *out << ", min new size";
+  *out << ", folding time";
+  *out << ", harvest time";
   *out << std::endl;
 
   if (estats_out.is_open()) {
@@ -256,290 +260,206 @@ int main(int argc, const char *argv[]) {
     pair_orbits_out.open(prefix + "_orbits.txt");
   }
 
-  auto setPairOrbit = [&pair_orbit, &pair_orbits_out](const WordPair& pair, const WordPair& canonical) {
-    auto result = pair_orbit.emplace(pair, canonical);
-    if (!result.second) {
-      return;
-    }
-    if (pair_orbits_out.is_open()) {
-      pair_orbits_out
-          << pair.u << ", " << pair.v << ", "
-          << canonical.u << ", " << canonical.v << std::endl;
+  std::map<std::pair<Automorhpism, Automorhpism>, std::tuple<int, WordPair>> autos_to_check = {
+      {
+          std::make_pair(
+              Automorhpism::y_map(CWord("Y")), Automorhpism::y_map(CWord("Y"))
+          ), std::make_tuple(-1, WordPair())
+      }, {
+          std::make_pair(
+              Automorhpism::y_map(CWord("yx")),
+              Automorhpism::y_map(CWord("yX"))
+          ), std::make_tuple(-1, WordPair())
+      }, {
+          std::make_pair(
+              Automorhpism(CWord("y"), CWord("x")),
+              Automorhpism(CWord("y"), CWord("x"))
+          ), std::make_tuple(-1, WordPair())
+      },
+  };
+
+
+  auto initial = GetCanonicalPair(Word(initial_strings.first.c_str()), Word(initial_strings.first.c_str()));
+  initial = Swapped(initial);
+
+  std::deque<std::tuple<Word, Word, int>> unprocessed_pairs = {std::make_tuple(initial.first, initial.second, 0)};
+  std::set<std::pair<Word, Word>> all_pairs = {initial};
+
+  auto check_pair_images = [&autos_to_check, &all_pairs](const std::pair<CWord, CWord> pair, int current_distance) {
+    for (auto&& f : autos_to_check) {
+      if (std::get<0>(f.second) != -1) {
+        continue;
+      }
+      auto image1 = GetCanonicalPair(f.first.first.Apply(pair.first), f.first.first.Apply(pair.second));
+      auto image2 = GetCanonicalPair(f.first.second.Apply(pair.first), f.first.second.Apply(pair.second));
+      if (all_pairs.count(image1) || all_pairs.count(image2)) {
+        std::get<0>(f.second) = current_distance;
+        std::get<1>(f.second) = WordPair{pair.first, pair.second};
+      }
     }
   };
 
-  for(auto iteration_count = 0; iteration_count < 1000000; ++iteration_count) {
-    std::map<Automorhpism, std::tuple<int, WordPair>> autos_to_check = {
-        {Automorhpism::y_map(CWord("Y")), std::make_tuple(-1, WordPair())},
-        {Automorhpism::y_map(CWord("yx")), std::make_tuple(-1, WordPair())},
-        {Automorhpism(CWord("y"), CWord("x")), std::make_tuple(-1, WordPair())},
-    };
+  if (unproc_words.is_open()) {
+    unproc_words << 0 << ", ";
+    PrintWord(initial.second, &unproc_words);
+    unproc_words << ", ";
+    PrintWord(initial.first, &unproc_words);
+    unproc_words << "\n";
+  }
 
-    auto w = GetRandomWordX1(engine);
+  int counter = 0;
+  Stopwatch folding_time_total;
+  Stopwatch harvest_time_total;
+  Stopwatch normalize_time_total;
+  Stopwatch reweight_time_total;
 
-    auto initial = GetCanonicalPair(Word(initial_strings.first.c_str()), w);
-    w = initial.second;
+  while (!autos_to_check.empty() && !unprocessed_pairs.empty() && all_pairs.begin()->first.size() > 4) {
+    ++counter;
+    *out << std::left << std::setw(7) << counter << ", ";
+    *out << std::right << std::setw(7) << unprocessed_pairs.size() << ", ";
+    *out << std::right << std::setw(7) << all_pairs.size() << ", ";
 
-    if (pair_orbit.count(WordPair{initial.first, initial.second})) {
-      --iteration_count;
-      continue;
+    if (estats_out.is_open()) {
+      estats_out << counter << ", ";
+      estats_out << unprocessed_pairs.size() << ", ";
+      estats_out << all_pairs.size() << ", ";
     }
 
-    std::cout << std::left << std::setw(7) << iteration_count << ", ";
-    std::cout << std::setw(15) << ToString(w) << ", " << std::flush;
+    Word u, v;
+    int current_distance;
+    std::tie(v, u, current_distance) = unprocessed_pairs.front();
+    unprocessed_pairs.pop_front();
+    *out << std::setw(2) << u.size() << ", ";
+    *out << std::setw(2) << v.size() << ", ";
+    *out << std::setw(2) << current_distance << ", ";
 
-    //auto initial = GetCanonicalPair(initial_strings.first.c_str(), initial_strings.second.c_str());
-
-    initial = Swapped(initial);
-
-    std::deque<std::tuple<Word, Word, int>> unprocessed_pairs = {std::make_tuple(initial.first, initial.second, 0)};
-    std::set<std::pair<Word, Word>> all_pairs = {initial};
-
-    bool orbit_intersected_with_existing = false;
-    WordPair canonical_word_pair;
-
-    auto check_pair_images = [&autos_to_check, &all_pairs](const std::pair<CWord, CWord> pair, int current_distance) {
-      for (auto&& f : autos_to_check) {
-        if (std::get<0>(f.second) != -1) {
-          continue;
-        }
-        auto image = GetCanonicalPair(f.first.Apply(pair.first), f.first.Apply(pair.second));
-        if (all_pairs.count(image)) {
-          std::get<0>(f.second) = current_distance;
-          std::get<1>(f.second) = WordPair{pair.first, pair.second};
-        }
-      }
-    };
-
-    if (unproc_words.is_open()) {
-      unproc_words << 0 << ", ";
-      PrintWord(initial.second, &unproc_words);
-      unproc_words << ", ";
-      PrintWord(initial.first, &unproc_words);
-      unproc_words << "\n";
+    if (proc_words.is_open()) {
+      proc_words << counter << ", ";
+      PrintWord(u, &proc_words);
+      proc_words << ", ";
+      PrintWord(v, &proc_words);
+      proc_words << "\n";
     }
 
-    int counter = 0;
-    Stopwatch folding_time_total;
-    Stopwatch harvest_time_total;
-    Stopwatch normalize_time_total;
-    Stopwatch reweight_time_total;
-
-    while (!orbit_intersected_with_existing && !unprocessed_pairs.empty() && all_pairs.begin()->first.size() > 4) {
-      ++counter;
-      *out << std::left << std::setw(7) << counter << ", ";
-      *out << std::right << std::setw(7) << unprocessed_pairs.size() << ", ";
-      *out << std::right << std::setw(7) << all_pairs.size() << ", ";
-
-      if (estats_out.is_open()) {
-        estats_out << counter << ", ";
-        estats_out << unprocessed_pairs.size() << ", ";
-        estats_out << all_pairs.size() << ", ";
+    auto exists = all_pairs.insert(Swapped(GetCanonicalPair(v, u)));
+    if (exists.second) {
+      unprocessed_pairs.emplace_front(exists.first->first, exists.first->second, current_distance);
+      if (unproc_words.is_open()) {
+        unproc_words << counter << ", ";
+        PrintWord(exists.first->second, &unproc_words);
+        unproc_words << ", ";
+        PrintWord(exists.first->first, &unproc_words);
+        unproc_words << "\n";
       }
 
-      Word u, v;
-      int current_distance;
-      std::tie(v, u, current_distance) = unprocessed_pairs.front();
-      unprocessed_pairs.pop_front();
-      *out << std::setw(2) << u.size() << ", ";
-      *out << std::setw(2) << v.size() << ", ";
-      *out << std::setw(2) << current_distance << ", ";
+      check_pair_images(*exists.first, current_distance);
+    }
 
-      if (proc_words.is_open()) {
-        proc_words << counter << ", ";
-        PrintWord(u, &proc_words);
-        proc_words << ", ";
-        PrintWord(v, &proc_words);
-        proc_words << "\n";
-      }
+    auto folding_time = folding_time_total.NewIter();
+    folding_time.Click();
+    FoldedGraph2 g;
+    g.PushCycle(u, g.root(), 1);
 
-      auto exists = all_pairs.insert(Swapped(GetCanonicalPair(v, u)));
+    for (auto i = 0u; i < complete_count[v.size()]; ++i) {
+      g.CompleteWith(v);
+    }
+    folding_time.Click();
+
+    if (estats_out.is_open()) {
+      estats_out << g.size() << ", ";
+      estats_out << g.CountNontrivialEdges() << ", ";
+    }
+
+    auto reweight_time = reweight_time_total.NewIter();
+    reweight_time.Click();
+    g.Reweight();
+    reweight_time.Click();
+
+    if (estats_out.is_open()) {
+      estats_out << g.CountNontrivialEdges() << ", ";
+    }
+
+    auto harvest_time = harvest_time_total.NewIter();
+    harvest_time.Click();
+    auto eq_u = g.Harvest(max_harvest_length, g.root());
+    harvest_time.Click();
+
+    if (estats_out.is_open()) {
+      estats_out << eq_u.size() << ", ";
+    }
+
+    auto normalize_time = normalize_time_total.NewIter();
+    normalize_time.Click();
+    GetCanonicalPairs(&v, &eq_u);
+    normalize_time.Click();
+
+    if (estats_out.is_open()) {
+      estats_out << eq_u.size() << ", ";
+      estats_out << u.size() << ", ";
+      estats_out << v.size() << ", ";
+    }
+
+    std::bitset<Word::kMaxLength> available_sizes;
+    for (auto u_p = eq_u.begin(); u_p != eq_u.end(); ++u_p) {
+      auto exists = all_pairs.emplace(*u_p, v);
       if (exists.second) {
-        unprocessed_pairs.emplace_front(exists.first->first, exists.first->second, current_distance);
-        if (unproc_words.is_open()) {
-          unproc_words << counter << ", ";
-          PrintWord(exists.first->second, &unproc_words);
-          unproc_words << ", ";
-          PrintWord(exists.first->first, &unproc_words);
-          unproc_words << "\n";
+        if (u_p->size() > 0) {
+          available_sizes.set(u_p->size() - 1);
+        }
+        if (current_distance < 1000) {
+          unprocessed_pairs.emplace_back(exists.first->first, exists.first->second, current_distance + 1);
+          if (unproc_words.is_open()) {
+            unproc_words << counter << ", ";
+            PrintWord(v, &unproc_words);
+            unproc_words << ", ";
+            PrintWord(*u_p, &unproc_words);
+            unproc_words << "\n";
+          }
         }
 
         check_pair_images(*exists.first, current_distance);
-        auto new_pair_orbit = pair_orbit.find(WordPair{exists.first->first, exists.first->second});
-
-        if (new_pair_orbit != pair_orbit.end()) {
-          canonical_word_pair = new_pair_orbit->second;
-          orbit_intersected_with_existing = true;
-          continue;
-        }
       }
-
-      auto folding_time = folding_time_total.NewIter();
-      folding_time.Click();
-      FoldedGraph2 g;
-      g.PushCycle(u, g.root(), 1);
-
-      for (auto i = 0u; i < complete_count[v.size()]; ++i) {
-        g.CompleteWith(v);
-      }
-      folding_time.Click();
-
-      if (estats_out.is_open()) {
-        estats_out << g.size() << ", ";
-        estats_out << g.CountNontrivialEdges() << ", ";
-      }
-
-      auto reweight_time = reweight_time_total.NewIter();
-      reweight_time.Click();
-      g.Reweight();
-      reweight_time.Click();
-
-      if (estats_out.is_open()) {
-        estats_out << g.CountNontrivialEdges() << ", ";
-      }
-
-      auto harvest_time = harvest_time_total.NewIter();
-      harvest_time.Click();
-      auto eq_u = g.Harvest(max_harvest_length, g.root());
-      harvest_time.Click();
-
-      if (estats_out.is_open()) {
-        estats_out << eq_u.size() << ", ";
-      }
-
-      auto normalize_time = normalize_time_total.NewIter();
-      normalize_time.Click();
-      GetCanonicalPairs(&v, &eq_u);
-      normalize_time.Click();
-
-      if (estats_out.is_open()) {
-        estats_out << eq_u.size() << ", ";
-        estats_out << u.size() << ", ";
-        estats_out << v.size() << ", ";
-      }
-
-      std::bitset<Word::kMaxLength> available_sizes;
-      for (auto u_p = eq_u.begin(); u_p != eq_u.end(); ++u_p) {
-        auto exists = all_pairs.emplace(*u_p, v);
-        if (exists.second) {
-          if (u_p->size() > 0) {
-            available_sizes.set(u_p->size() - 1);
-          }
-          if (current_distance < 5) {
-            unprocessed_pairs.emplace_back(exists.first->first, exists.first->second, current_distance + 1);
-            if (unproc_words.is_open()) {
-              unproc_words << counter << ", ";
-              PrintWord(v, &unproc_words);
-              unproc_words << ", ";
-              PrintWord(*u_p, &unproc_words);
-              unproc_words << "\n";
-            }
-          }
-
-          check_pair_images(*exists.first, current_distance);
-          auto new_pair_orbit = pair_orbit.find(WordPair{exists.first->first, exists.first->second});
-
-          if (new_pair_orbit != pair_orbit.end()) {
-            canonical_word_pair = new_pair_orbit->second;
-            orbit_intersected_with_existing = true;
-            break;
-          }
-        }
-      }
-
-      bool is_first = true;
-      for (auto sz = 0u; sz < Word::kMaxLength; ++sz) {
-        if (available_sizes[sz]) {
-          if (is_first) {
-            *out << sz + 1;
-          }
-          if (estats_out.is_open()) {
-            estats_out << sz + 1 << "; ";
-          }
-          is_first = false;
-        }
-      }
-
-      *out << ", " << folding_time_total.last() << ", ";
-      *out << harvest_time_total.last() << std::endl;
-
-      if (estats_out.is_open()) {
-        estats_out << ", ";
-        estats_out << folding_time_total.last() << ", ";
-        estats_out << folding_time_total.average() << ", ";
-        estats_out << reweight_time_total.last() << ", ";
-        estats_out << reweight_time_total.average() << ", ";
-        estats_out << harvest_time_total.last() << ", ";
-        estats_out << harvest_time_total.average() << ", ";
-        estats_out << normalize_time_total.last() << ", ";
-        estats_out << normalize_time_total.average() << "\n";
-      }
-
-      out->flush();
-      estats_out.flush();
-      proc_words.flush();
-      unproc_words.flush();
     }
 
-    for (auto&& f : autos_to_check) {
-      if (std::get<0>(f.second) != -1) {
-        std::cout << std::get<1>(f.second) << ":" << std::get<0>(f.second) << ", ";
-      } else {
-        std::cout << std::setw(10) << " " << ", ";
-      };
+    bool is_first = true;
+    for (auto sz = 0u; sz < Word::kMaxLength; ++sz) {
+      if (available_sizes[sz]) {
+        if (is_first) {
+          *out << sz + 1;
+        }
+        if (estats_out.is_open()) {
+          estats_out << sz + 1 << "; ";
+        }
+        is_first = false;
+      }
     }
 
-    if (all_pairs.begin()->first.size() <= 4) {
-      canonical_word_pair = WordPair{Word("x"), Word("y")};
-      std::cout << 1 << std::endl;
-      if (!prefix.empty()) {
-        std::ofstream words(prefix + "_trivial.txt", std::ios::app | std::ios::out);
-        words << w << std::endl;
-      }
-    } else if (orbit_intersected_with_existing) {
-      std::cout << 2 << ", " << canonical_word_pair << std::endl;
-      if (!prefix.empty()) {
-        std::ofstream words(prefix + "_intersect.txt", std::ios::app | std::ios::out);
-        words << w << std::endl;
-      }
+    *out << ", " << folding_time_total.last() << ", ";
+    *out << harvest_time_total.last() << std::endl;
+
+    if (estats_out.is_open()) {
+      estats_out << ", ";
+      estats_out << folding_time_total.last() << ", ";
+      estats_out << folding_time_total.average() << ", ";
+      estats_out << reweight_time_total.last() << ", ";
+      estats_out << reweight_time_total.average() << ", ";
+      estats_out << harvest_time_total.last() << ", ";
+      estats_out << harvest_time_total.average() << ", ";
+      estats_out << normalize_time_total.last() << ", ";
+      estats_out << normalize_time_total.average() << "\n";
+    }
+
+    out->flush();
+    estats_out.flush();
+    proc_words.flush();
+    unproc_words.flush();
+  }
+
+  for (auto&& f : autos_to_check) {
+    if (std::get<0>(f.second) != -1) {
+      std::cout << std::get<1>(f.second) << ":" << std::get<0>(f.second) << ", ";
     } else {
-      std::cout << 0;
-
-      //find min orbit element
-      auto compareByTotal = [](const std::pair<Word, Word>& first, const std::pair<Word, Word>& second) {
-        if(first.first.size() + first.second.size() != second.first.size() + second.second.size()) {
-          return first.first.size() + first.second.size() < second.first.size() + second.second.size();
-        }
-        if (first.first != second.first) {
-          return first.first < second.first;
-        }
-        return first.second < second.second;
-      };
-
-      auto min_orbit_element = std::min_element(all_pairs.begin(), all_pairs.end(), compareByTotal);
-
-      canonical_word_pair = WordPair{min_orbit_element->first, min_orbit_element->second};
-
-      if (std::all_of(autos_to_check.begin(), autos_to_check.end(),
-            [](const decltype(autos_to_check)::value_type& a) {return std::get<0>(a.second) != -1; })) {
-        std::cout << 1;
-        if (!prefix.empty()) {
-          std::ofstream words(prefix + "_true.txt", std::ios::app | std::ios::out);
-          words << min_orbit_element->first << ',' << min_orbit_element->second << ',' << w << std::endl;
-        }
-      } else {
-        std::cout << 0;
-        if (!prefix.empty()) {
-          std::ofstream words(prefix + "_false.txt", std::ios::app | std::ios::out);
-          words << min_orbit_element->first << ',' << min_orbit_element->second << ',' << w << std::endl;
-        }
-      }
-      std::cout << " " << min_orbit_element->first << " " << min_orbit_element->second << std::endl;
-    }
-
-    for (auto&& pair : all_pairs) {
-      setPairOrbit(WordPair{pair.first, pair.second}, canonical_word_pair);
-    }
-    pair_orbits_out.flush();
+      std::cout << std::setw(10) << " " << ", ";
+    };
   }
 }

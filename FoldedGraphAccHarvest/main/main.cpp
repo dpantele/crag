@@ -275,7 +275,6 @@ int main(int argc, const char *argv[]) {
         {Automorhpism(CWord("y"), CWord("x")), std::make_tuple(-1, WordPair())},
     };
 
-    std::cout << std::left << std::setw(7) << iteration_count << ", ";
     auto w = GetRandomWordX1(engine);
 
     auto initial = GetCanonicalPair(Word(initial_strings.first.c_str()), w);
@@ -286,6 +285,7 @@ int main(int argc, const char *argv[]) {
       continue;
     }
 
+    std::cout << std::left << std::setw(7) << iteration_count << ", ";
     std::cout << std::setw(15) << ToString(w) << ", " << std::flush;
 
     //auto initial = GetCanonicalPair(initial_strings.first.c_str(), initial_strings.second.c_str());
@@ -497,7 +497,7 @@ int main(int argc, const char *argv[]) {
         words << w << std::endl;
       }
     } else if (orbit_intersected_with_existing) {
-      std::cout << 2 << std::endl;
+      std::cout << 2 << ", " << canonical_word_pair << std::endl;
       if (!prefix.empty()) {
         std::ofstream words(prefix + "_intersect.txt", std::ios::app | std::ios::out);
         words << w << std::endl;

@@ -116,7 +116,7 @@ class RandomWord {
 
 template<typename RandomEngine>
 Word GetRandomWordX1(RandomEngine& engine) {
-  RandomWord generator(7, 10);
+  RandomWord generator(7, 12);
 
   auto ComputeXPower = [](Word w) {
     int count = 0;
@@ -250,8 +250,6 @@ int main(int argc, const char *argv[]) {
     estats_out << "\n";
   }
 
-  auto iteration_count = 0;
-
   std::map<WordPair, WordPair> pair_orbit; //!< For each pair we specify the 'canonical' one
   std::ofstream pair_orbits_out;
   if (!prefix.empty()) {
@@ -270,19 +268,24 @@ int main(int argc, const char *argv[]) {
     }
   };
 
-  while (true) {
+  for(auto iteration_count = 0; iteration_count < 1000000; ++iteration_count) {
     std::map<Automorhpism, std::tuple<int, WordPair>> autos_to_check = {
         {Automorhpism::y_map(CWord("Y")), std::make_tuple(-1, WordPair())},
         {Automorhpism::y_map(CWord("yx")), std::make_tuple(-1, WordPair())},
         {Automorhpism(CWord("y"), CWord("x")), std::make_tuple(-1, WordPair())},
     };
 
-    ++iteration_count;
     std::cout << std::left << std::setw(7) << iteration_count << ", ";
     auto w = GetRandomWordX1(engine);
 
     auto initial = GetCanonicalPair(Word(initial_strings.first.c_str()), w);
     w = initial.second;
+
+    if (pair_orbit.count(WordPair{initial.first, initial.second})) {
+      --iteration_count;
+      continue;
+    }
+
     std::cout << std::setw(15) << ToString(w) << ", " << std::flush;
 
     //auto initial = GetCanonicalPair(initial_strings.first.c_str(), initial_strings.second.c_str());

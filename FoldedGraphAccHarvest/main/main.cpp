@@ -290,12 +290,21 @@ int main(int argc, const char* argv[]) {
       if (std::get<0>(f.second) != -1) {
         continue;
       }
-      auto image1 = GetCanonicalPair(f.first.first.Apply(pair.first), f.first.first.Apply(pair.second));
-      auto image2 = GetCanonicalPair(f.first.second.Apply(pair.first), f.first.second.Apply(pair.second));
-      if (all_pairs.count(image1) || all_pairs.count(image2)) {
-        std::get<0>(f.second) = current_distance;
-        std::get<1>(f.second) = WordPair{pair.first, pair.second};
-      }
+
+      try {
+        auto image = GetCanonicalPair(f.first.first.Apply(pair.first), f.first.first.Apply(pair.second));
+        if (all_pairs.count(image)) {
+          std::get<0>(f.second) = current_distance;
+          std::get<1>(f.second) = WordPair{pair.first, pair.second};
+        }
+      } catch(std::exception&) { }
+      try {
+        auto image = GetCanonicalPair(f.first.second.Apply(pair.first), f.first.second.Apply(pair.second));
+        if (all_pairs.count(image)) {
+          std::get<0>(f.second) = current_distance;
+          std::get<1>(f.second) = WordPair{pair.first, pair.second};
+        }
+      } catch(std::exception&) { }
     }
   };
 

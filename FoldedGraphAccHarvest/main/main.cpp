@@ -215,7 +215,7 @@ struct Parameters {
   Parameters()
     : complete_count(Word::kMaxLength + 1, 2)
     , initial_strings("xxxyXyy", "xyyxYYXy")
-    , required_strings("xxyXXYY", "xyyxYYXy")
+    , required_strings("x", "y")
     //, initial_strings("xyxYXY", "xxxYYYY")
     //, required_strings("x", "y")
   { }
@@ -734,6 +734,13 @@ int main(int argc, const char *argv[]) {
   tasks.clear();
 
   auto average_other_time = (overall_time.total_time() - total_time.total()) / total_time.folding().iterations();
+
+
+  if (all_pairs.count(required)) {
+    *out << "found\n";
+  } else {
+    *out << "not found\n";
+  }
   *out << "total time: " << overall_time.total_time() << std::endl;
   *out << "total rest(av): " << average_other_time << std::endl;
   *out << "total iterations: " << total_time.folding().iterations() << std::endl;

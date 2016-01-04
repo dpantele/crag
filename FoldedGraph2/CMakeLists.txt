@@ -7,7 +7,7 @@ crag_library(FoldedGraph2
   compressed_word
 )
 
-target_compile_features(FoldedGraph2 PUBLIC cxx_generalized_initializers)
+target_compile_features(FoldedGraph2 PUBLIC cxx_generalized_initializers PRIVATE cxx_generic_lambdas)
 
 crag_test(folded_graph 
   AccHarvest

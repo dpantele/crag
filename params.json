@@ -1,0 +1,6 @@
+{
+  "name": "Andrews-Curtis conjecture enumeration",
+  "tagline": "Fork of http://www.stevens.edu/algebraic/downloads.php with added routines realted to the Andrews-Curtis conjecture",
+  "body": "Currently this page only contains instructions on how to reproduce results from [D. Panteleev, A. Ushakov - CONJUGACY SEARCH PROBLEM AND THE ANDREWS-CURTIS CONJECTURE](http://example.com). If you need description for some other CRAG modules, please refer to [https://github.com/stevens-crag/crag]\r\n\r\nThere is also newer and independent implementation at [https://github.com/dpantele/acc], but currently it completely lacks any documentation and does not have all routins reimplemented there. ",
+  "note": "Don't delete this file! It's used internally to help with page regeneration."
+}
